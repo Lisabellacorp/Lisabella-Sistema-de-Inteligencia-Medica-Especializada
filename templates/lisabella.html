@@ -420,6 +420,15 @@
             margin-top: 0.5rem;
         }
         
+        .footer-bleacher {
+            font-size: 0.9rem;
+            color: var(--uas-dorado);
+            font-weight: 600;
+            margin-top: 0.8rem;
+            letter-spacing: 1px;
+            opacity: 0.85;
+        }
+        
         .footer-disclaimer {
             margin-top: 1.5rem;
             font-size: 0.85rem;
@@ -560,6 +569,7 @@
             <div class="footer-credit">Con amor para mi hija 💚</div>
             <div class="footer-credit">JESÚS RAYMUNDO VEGA BONILLA</div>
             <div class="footer-slogan">Lisabellacorp®</div>
+            <div class="footer-bleacher">NACION BLEACHER</div>
             <div class="footer-disclaimer">
                 <strong>Disclaimer:</strong> Lisabella es un motor de conocimiento médico especializado alimentado por librerías médicas validadas. Arquitectura de respuesta precisa basada en evidencia científica.
             </div>
@@ -620,7 +630,7 @@
                 addMessage('bot', `
                     <strong>❌ Error de Conexión</strong><br><br>
                     ${error.message}<br><br>
-                    <em style="font-size: 0.9rem;">Verifica que el backend Python esté ejecutándose en http://localhost:5000</em>
+                    <em style="font-size: 0.9rem;">Verifica la conexión con el servidor</em>
                 `);
             }
 
@@ -630,7 +640,7 @@
         }
 
         async function callBackend(question) {
-            const response = await fetch('http://localhost:5000/ask', {
+            const response = await fetch('/ask', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
