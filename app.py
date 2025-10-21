@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from src.main import Lisabella
 import os
@@ -46,7 +46,7 @@ def ask():
 
 @app.route('/health', methods=['GET'])
 def health():
-    """Health check para Railway"""
+    """Health check para Render"""
     return jsonify({
         "status": "ok",
         "message": "Lisabella está funcionando",
@@ -55,13 +55,20 @@ def health():
 
 @app.route('/', methods=['GET'])
 def home():
-    """Página de inicio del API"""
+    """Página principal de Lisabella - Sirve el HTML"""
+    return render_template('lisabella.html')
+
+@app.route('/api', methods=['GET'])
+def api_info():
+    """Información del API"""
     return jsonify({
         "name": "Lisabella API",
         "version": "1.0",
         "endpoints": {
+            "/": "GET - Interfaz web de Lisabella",
             "/ask": "POST - Consultar a Lisabella",
-            "/health": "GET - Estado del servidor"
+            "/health": "GET - Estado del servidor",
+            "/api": "GET - Info del API"
         }
     }), 200
 
