@@ -250,24 +250,66 @@
             margin: 0.5rem 0;
         }
         
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .table-wrapper::-webkit-scrollbar {
+            height: 8px;
+        }
+        
+        .table-wrapper::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .table-wrapper::-webkit-scrollbar-thumb {
+            background: var(--uas-azul-claro);
+            border-radius: 4px;
+        }
+        
+        .table-wrapper::-webkit-scrollbar-thumb:hover {
+            background: var(--uas-azul);
+        }
+        
         .message.bot .message-bubble table {
             width: 100%;
+            min-width: 500px;
             border-collapse: collapse;
-            margin: 1rem 0;
             font-size: 0.9rem;
+            background: white;
         }
         
         .message.bot .message-bubble table th,
         .message.bot .message-bubble table td {
-            border: 1px solid #ddd;
-            padding: 0.7rem;
+            border: 1px solid #e0e0e0;
+            padding: 0.9rem 1rem;
             text-align: left;
+            vertical-align: top;
         }
         
         .message.bot .message-bubble table th {
-            background: var(--uas-azul);
+            background: linear-gradient(135deg, var(--uas-azul) 0%, var(--uas-azul-claro) 100%);
             color: white;
             font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .message.bot .message-bubble table tbody tr:hover {
+            background: #f8f9fa;
+            transition: background 0.2s ease;
+        }
+        
+        .message.bot .message-bubble table td:first-child {
+            font-weight: 600;
+            color: var(--uas-azul);
         }
         
         .message.bot .message-bubble code {
@@ -731,6 +773,15 @@
             const bubble = document.createElement('div');
             bubble.className = 'message-bubble';
             bubble.innerHTML = content;
+            
+            // Envolver tablas en contenedor con scroll
+            const tables = bubble.querySelectorAll('table');
+            tables.forEach(table => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'table-wrapper';
+                table.parentNode.insertBefore(wrapper, table);
+                wrapper.appendChild(table);
+            });
             
             messageDiv.appendChild(bubble);
             messagesArea.appendChild(messageDiv);
