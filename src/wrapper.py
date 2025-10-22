@@ -49,7 +49,7 @@ class Wrapper:
         
         if special_command:
             # Comandos de notas médicas (siempre aprobados)
-            if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"]:
+            if special_command in ["revision_nota", "elaboracion_nota", "valoracion", "calculo_dosis"]:
                 return {
                     "result": Result.APPROVED,
                     "domain": "análisis clínico",
@@ -174,8 +174,8 @@ class Wrapper:
         if has_valid_pattern:
             return {
                 "result": Result.REFORMULATE,
-                "reason": "Pregunta con estructura válida pero sin términos médicos específicos",
-                "suggestion": "Agrega términos médicos específicos:\n• Nombres de órganos, tejidos o estructuras\n• Fármacos o grupos farmacológicos\n• Enfermedades o síndromes\n• Procesos bioquímicos o fisiológicos"
+                "reason": "Pregunta con estructura válida pero poco específica",
+                "suggestion": self._generate_smart_suggestions()
             }
         
         # ═══════════════════════════════════════════════════════
@@ -183,16 +183,8 @@ class Wrapper:
         # ═══════════════════════════════════════════════════════
         return {
             "result": Result.REFORMULATE,
-            "reason": "No se detectaron términos médicos específicos",
-            "suggestion": """**Para obtener una respuesta precisa, reformula usando:**
-
-• **Términos anatómicos**: estructura, ubicación, función de órganos
-• **Términos farmacológicos**: mecanismo de acción, dosis, efectos adversos
-• **Términos patológicos**: etiología, fisiopatología, diagnóstico
-• **Términos clínicos**: síntomas, signos, tratamiento, pronóstico
-
-**Ejemplo de pregunta bien formulada:**
-"¿Cuál es el mecanismo de acción del losartán en hipertensión arterial?"""
+            "reason": "Pregunta demasiado general",
+            "suggestion": self._generate_smart_suggestions()
         }
     
     # ═══════════════════════════════════════════════════════
@@ -203,9 +195,31 @@ class Wrapper:
         """Detecta comandos especiales para notas médicas y estudio"""
         q_lower = question.lower()
         
-        special_commands = self.domains.get("special_commands", {})
+        # Comandos unificados y nuevos
+        command_patterns = {
+            "revision_nota": [
+                "revisar nota", "corregir nota", "auditar nota", "evaluar nota",
+                "analizar nota", "revision de nota", "correccion de nota"
+            ],
+            "elaboracion_nota": [
+                "elaborar nota", "crear nota", "generar nota", "hacer nota",
+                "redactar nota", "nota medica"
+            ],
+            "valoracion": [
+                "valoracion de paciente", "valoración paciente", "evaluar paciente",
+                "abordaje de paciente", "orientacion diagnostica", "orientación diagnóstica"
+            ],
+            "calculo_dosis": [
+                "calcular dosis", "calculo de dosis", "cálculo de dosis",
+                "dosis por peso", "dosis por edad", "ajuste de dosis",
+                "dosificacion", "dosificación"
+            ],
+            "apoyo_estudio": [
+                "apoyo en estudio", "ayuda para estudiar", "modo estudio"
+            ]
+        }
         
-        for command_type, triggers in special_commands.items():
+        for command_type, triggers in command_patterns.items():
             if any(trigger in q_lower for trigger in triggers):
                 return command_type
         
@@ -242,7 +256,7 @@ class Wrapper:
                 if kw in q_lower and kw not in detected:
                     detected.append(kw)
         
-        return detected[:5]  # Máximo 5 para no saturar
+        return detected[:5]
     
     def _detect_specific_drugs(self, text):
         """Detectar fármacos específicos comunes"""
@@ -292,13 +306,33 @@ class Wrapper:
     
     def _generate_term_suggestions(self, term):
         """Generar sugerencias para un término médico específico"""
-        return f"""**Preguntas sugeridas sobre '{term}':**
+        return f"""Preguntas sugeridas sobre '{term}':
 
-• ¿Cuál es la **estructura anatómica** del {term}?
-• ¿Cuál es la **función fisiológica** del {term}?
-• ¿Dónde se **ubica** el {term}?
-• ¿Qué **irrigación** tiene el {term}?
-• ¿Qué **patologías** afectan al {term}?"""
+• ¿Cuál es la estructura anatómica del {term}?
+• ¿Cuál es la función fisiológica del {term}?
+• ¿Dónde se ubica el {term}?
+• ¿Qué irrigación tiene el {term}?
+• ¿Qué patologías afectan al {term}?"""
+    
+    def _generate_smart_suggestions(self):
+        """Genera sugerencias inteligentes con ejemplos variados"""
+        return """Usa lenguaje médico más específico.
+
+Ejemplos bien formulados:
+
+ANATOMÍA:
+"Describe la estructura anatómica de pleura y pulmones, incluyendo irrigación arterial y venosa"
+
+FARMACOLOGÍA:
+"¿Cuál es el mecanismo de acción del losartán en hipertensión arterial y su dosis usual?"
+
+FISIOLOGÍA:
+"Explica la ley de los grandes números aplicada al riesgo cardiovascular en poblaciones"
+
+PATOLOGÍA:
+"¿Cuáles son los criterios diagnósticos de SIRS y su relación con sepsis según Sepsis-3?"
+
+Tip: Entre más técnica y detallada tu pregunta, mejor responde Lisabella."""
     
     def get_stats(self):
         """Obtener estadísticas del wrapper (para debugging)"""
