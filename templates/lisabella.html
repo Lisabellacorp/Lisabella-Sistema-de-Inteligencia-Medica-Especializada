@@ -669,11 +669,24 @@
                     `);
                 }
             } catch (error) {
-                addMessage('bot', `
-                    <strong>❌ Error de Conexión</strong><br><br>
-                    ${error.message}<br><br>
-                    <em style="font-size: 0.9rem;">Verifica la conexión con el servidor</em>
-                `);
+                // Detectar tipo de error
+                if (error.message.includes('502') || error.message.includes('timeout')) {
+                    addMessage('bot', `
+                        <strong>⏱️ Consulta demasiado compleja</strong><br><br>
+                        Esta pregunta requiere una respuesta muy extensa.<br><br>
+                        <strong>Intenta:</strong><br>
+                        • Dividirla en partes más específicas<br>
+                        • Enfocarte en un solo aspecto (ej: solo irrigación, solo histología)<br><br>
+                        <strong>Ejemplo más manejable:</strong><br>
+                        "Describe la irrigación arterial y venosa de los pulmones"
+                    `);
+                } else {
+                    addMessage('bot', `
+                        <strong>❌ Error temporal del servidor</strong><br><br>
+                        Intenta nuevamente en unos segundos.<br><br>
+                        Si el problema persiste, reformula tu pregunta de forma más específica.
+                    `);
+                }
             }
 
             sendBtn.disabled = false;
@@ -785,7 +798,16 @@
             
             messageDiv.appendChild(bubble);
             messagesArea.appendChild(messageDiv);
-            messagesArea.scrollTop = messagesArea.scrollHeight;
+            
+            // Si es respuesta del bot, hacer scroll al inicio de la respuesta
+            if (sender === 'bot') {
+                setTimeout(() => {
+                    messageDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            } else {
+                // Si es pregunta del usuario, scroll al final normal
+                messagesArea.scrollTop = messagesArea.scrollHeight;
+            }
         }
 
         questionInput.focus();
