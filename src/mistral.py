@@ -1,6 +1,5 @@
 import os
 import time
-import json
 
 # ✅ IMPORTACIÓN SEGURA PARA RENDER
 try:
@@ -12,10 +11,8 @@ except ImportError:
 
 # ✅ CONFIGURACIÓN SEGURA
 try:
-    # Primero intenta desde config
     from src.config import MISTRAL_KEY, MISTRAL_MODEL, MISTRAL_TEMP
 except ImportError:
-    # Fallback para Render
     MISTRAL_KEY = os.environ.get("MISTRAL_API_KEY")
     MISTRAL_MODEL = os.environ.get("MISTRAL_MODEL", "mistral-large-latest")
     MISTRAL_TEMP = float(os.environ.get("MISTRAL_TEMP", "0.3"))
@@ -42,14 +39,21 @@ class MistralClient:
                 system_msg = self._build_system_prompt(domain, special_command)
                 user_msg = self._build_user_prompt(question, domain, special_command)
                 
+                # ✅ SINTAXIS ACTUALIZADA PARA MISTRAL 1.9.11
                 response = self.client.chat.complete(
                     model=self.model,
-                    temperature=self.temp,
-                    max_tokens=4000,
                     messages=[
-                        {"role": "system", "content": system_msg},
-                        {"role": "user", "content": user_msg}
-                    ]
+                        {
+                            "role": "system",
+                            "content": system_msg
+                        },
+                        {
+                            "role": "user",
+                            "content": user_msg
+                        }
+                    ],
+                    temperature=self.temp,
+                    max_tokens=8000  # ✅ Aumentado para aprovechar tu plan de $7
                 )
                 
                 return response.choices[0].message.content
@@ -66,10 +70,15 @@ class MistralClient:
                     else:
                         return self._generate_rate_limit_message()
                 
-                elif "authentication" in error_str or "api key" in error_str:
+                elif "authentication" in error_str or "api key" in error_str or "unauthorized" in error_str:
                     return """⚠️ **Error de Autenticación**
 
 La API key de Mistral no es válida o ha expirado.
+
+**Posibles causas:**
+- La API key cambió al actualizar el plan
+- Necesitas regenerar la clave desde el dashboard de Mistral
+- El tier no está activo correctamente
 
 **Contacta al administrador del sistema.**"""
                 
@@ -99,10 +108,6 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
     
     def _build_system_prompt(self, domain, special_command=None):
         """Construir system prompt especializado por comando o dominio"""
-        
-        # ═══════════════════════════════════════════════════════
-        # COMANDOS ESPECIALES (prioridad)
-        # ═══════════════════════════════════════════════════════
         
         if special_command == "revision_nota":
             return """Eres un auditor médico certificado especializado en revisión de notas médicas.
@@ -225,6 +230,7 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
 **TU FUNCIÓN:** Crear una plantilla estructurada de nota médica en formato SOAP.
 
 **ESTRUCTURA OBLIGATORIA:**
+
 NOTA MÉDICA
 
 ═══════════════════════════════════════════════════════════
@@ -256,22 +262,22 @@ Evolución: [COMPLETAR]
 Tratamientos previos: [COMPLETAR]
 
 ANTECEDENTES:
-• Personales patológicos: [ALERGIAS/CIRUGÍAS/ENFERMEDADES CRÓNICAS]
-• Personales no patológicos: [TABAQUISMO/ALCOHOLISMO]
-• Familiares: [ENFERMEDADES HEREDITARIAS]
-• [Si mujer] Gineco-obstétricos: [G_P_A_C_]
+- Personales patológicos: [ALERGIAS/CIRUGÍAS/ENFERMEDADES CRÓNICAS]
+- Personales no patológicos: [TABAQUISMO/ALCOHOLISMO]
+- Familiares: [ENFERMEDADES HEREDITARIAS]
+- [Si mujer] Gineco-obstétricos: [G_P_A_C_]
 
 ═══════════════════════════════════════════════════════════
 O - OBJETIVO
 ═══════════════════════════════════════════════════════════
 
 SIGNOS VITALES:
-• TA: [/] mmHg
-• FC: [] lpm
-• FR: [] rpm
-• Temperatura: [] °C
-• SatO₂: [] %
-• Peso: [] kg Talla: [] cm IMC: [___]
+- TA: [/] mmHg
+- FC: [] lpm
+- FR: [] rpm
+- Temperatura: [] °C
+- SatO₂: [] %
+- Peso: [] kg Talla: [] cm IMC: [___]
 
 EXPLORACIÓN FÍSICA:
 Habitus exterior: [COMPLETAR]
@@ -298,8 +304,8 @@ JUSTIFICACIÓN:
 [CORRELACIÓN CLÍNICA]
 
 DIAGNÓSTICO DIFERENCIAL:
-• [OPCIÓN 1]
-• [OPCIÓN 2]
+- [OPCIÓN 1]
+- [OPCIÓN 2]
 
 ═══════════════════════════════════════════════════════════
 P - PLAN
@@ -315,7 +321,7 @@ TRATAMIENTO FARMACOLÓGICO:
 [FÁRMACO] [DOSIS] [VÍA] [FRECUENCIA] por [DURACIÓN]
 
 MEDIDAS NO FARMACOLÓGICAS:
-• [COMPLETAR]
+- [COMPLETAR]
 
 PRONÓSTICO:
 [BUENO/RESERVADO/MALO]
@@ -327,8 +333,6 @@ Signos de alarma: [COMPLETAR]
 ═══════════════════════════════════════════════════════════
 _______________________
 Firma y Sello del Médico
-
-text
 
 **USA ESTA PLANTILLA** y completa con los datos proporcionados. Si falta información, deja [COMPLETAR]."""
 
@@ -397,19 +401,16 @@ text
 
 Adapta tu respuesta para ENSEÑAR, no solo informar:
 
-• Usa **analogías** cuando expliques conceptos complejos
-• Incluye **ejemplos clínicos** relevantes
-• Explica el **"por qué"** detrás de cada concepto
-• Divide conceptos complejos en **pasos simples**
-• Usa **casos de aplicación práctica**
-• Destaca **errores comunes** que estudiantes cometen
-• Agrega **correlación clínica** siempre que sea posible
+- Usa **analogías** cuando expliques conceptos complejos
+- Incluye **ejemplos clínicos** relevantes
+- Explica el **"por qué"** detrás de cada concepto
+- Divide conceptos complejos en **pasos simples**
+- Usa **casos de aplicación práctica**
+- Destaca **errores comunes** que estudiantes cometen
+- Agrega **correlación clínica** siempre que sea posible
 
 **Objetivo:** Que el estudiante ENTIENDA profundamente, no solo memorice."""
 
-        # ═══════════════════════════════════════════════════════
-        # PROMPT BASE POR DOMINIO (si no hay comando especial)
-        # ═══════════════════════════════════════════════════════
         else:
             return self._get_base_prompt(domain)
     
@@ -483,8 +484,8 @@ Responde siguiendo ESTRICTAMENTE la estructura:
 Lo siento, he alcanzado el límite de consultas por minuto con el proveedor de inteligencia artificial.
 
 **¿Qué puedes hacer?**
-• Espera **1-2 minutos** e intenta nuevamente
-• Si el problema persiste, intenta con una pregunta más breve
-• Este es un límite técnico del servicio, no un error de Lisabella
+- Espera **1-2 minutos** e intenta nuevamente
+- Si el problema persiste, intenta con una pregunta más breve
+- Este es un límite técnico del servicio, no un error de Lisabella
 
-**Nota para el administrador:** Considera actualizar el tier de la API de Mistral para producción."""
+**Nota:** Con el plan de $7/mes, deberías tener límites más altos. Si persiste, verifica tu dashboard de Mistral."""
