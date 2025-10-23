@@ -32,7 +32,44 @@ class MistralClient:
         self.temp = MISTRAL_TEMP
         self.max_retries = 3
         self.base_retry_delay = 2
-        self.api_timeout = 60  # Timeout en segundos para la API
+        self.api_timeout = 60
+
+    def generate_stream(self, question, domain, special_command=None):
+        """
+        🚀 NUEVO: Genera respuesta con STREAMING REAL de Mistral.
+        Envía tokens conforme se generan (sin esperar respuesta completa).
+        """
+        system_msg = self._build_system_prompt(domain, special_command)
+        user_msg = self._build_user_prompt(question, domain, special_command)
+        
+        try:
+            # ✅ STREAMING NATIVO DE MISTRAL
+            stream = self.client.chat.stream(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": user_msg}
+                ],
+                temperature=self.temp,
+                max_tokens=4000
+            )
+            
+            # Generator que envía cada chunk conforme llega
+            for chunk in stream:
+                if chunk.data.choices:
+                    delta = chunk.data.choices[0].delta.content
+                    if delta:
+                        yield delta
+                        
+        except Exception as e:
+            error_str = str(e).lower()
+            
+            if "429" in str(e) or "rate" in error_str:
+                yield "\n\n⏳ **Sistema temporalmente saturado**\n\nEspera 1-2 minutos e intenta nuevamente."
+            elif "authentication" in error_str:
+                yield "\n\n⚠️ **Error de autenticación**\n\nLa API key no es válida."
+            else:
+                yield f"\n\n⚠️ **Error del sistema**\n\n{str(e)[:200]}"
 
     def generate(self, question, domain, special_command=None):
         """Generar respuesta COMPLETA con retry automático (método original - LEGACY)"""
@@ -46,7 +83,7 @@ class MistralClient:
                         question,
                         domain,
                         special_command,
-                        max_tokens=4000  # COMPLETO para mantener calidad
+                        max_tokens=4000
                     )
                     result = future.result(timeout=self.api_timeout)
                 return result
@@ -99,52 +136,6 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
 
         return self._generate_rate_limit_message()
 
-    def generate_chunk(self, prompt, domain, max_tokens=1000):
-        """
-        NUEVO MÉTODO: Genera UN CHUNK (sección) de respuesta.
-        Diseñado para streaming sin timeout.
-        Mantiene CALIDAD COMPLETA dentro del límite de tokens especificado.
-        """
-        for attempt in range(self.max_retries):
-            try:
-                # Timeout más corto para chunks individuales
-                with ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(
-                        self._call_mistral_api_chunk,
-                        prompt,
-                        domain,
-                        max_tokens
-                    )
-                    # Timeout de 25s por chunk (seguro para Render 30s)
-                    result = future.result(timeout=25)
-                return result
-
-            except TimeoutError:
-                print(f"⏳ Chunk timeout en intento {attempt + 1}/{self.max_retries}")
-                if attempt < self.max_retries - 1:
-                    time.sleep(1)
-                    continue
-                else:
-                    return "⚠️ Sección no disponible por timeout."
-
-            except Exception as e:
-                error_str = str(e).lower()
-                
-                if "429" in str(e) or "rate" in error_str:
-                    if attempt < self.max_retries - 1:
-                        retry_delay = 1 * (2 ** attempt)
-                        print(f"⏳ Rate limit en chunk. Reintentando en {retry_delay}s...")
-                        time.sleep(retry_delay)
-                        continue
-                    else:
-                        return "⚠️ Sección no disponible por límite de API."
-                
-                else:
-                    print(f"❌ Error en chunk: {str(e)}")
-                    return f"⚠️ Error al generar esta sección: {str(e)[:100]}"
-        
-        return "⚠️ Sección no disponible."
-
     def _call_mistral_api(self, question, domain, special_command, max_tokens=4000):
         """Llamada real a la API de Mistral (método original COMPLETO)"""
         system_msg = self._build_system_prompt(domain, special_command)
@@ -153,48 +144,11 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
         response = self.client.chat.complete(
             model=self.model,
             messages=[
-                {
-                    "role": "system",
-                    "content": system_msg
-                },
-                {
-                    "role": "user",
-                    "content": user_msg
-                }
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg}
             ],
             temperature=self.temp,
             max_tokens=max_tokens
-        )
-
-        return response.choices[0].message.content
-
-    def _call_mistral_api_chunk(self, prompt, domain, max_tokens):
-        """
-        NUEVO: Llamada API para generar UN CHUNK específico.
-        Más directo, sin comandos especiales.
-        """
-        system_msg = f"""Eres Lisabella, asistente médico especializado en {domain}.
-
-**INSTRUCCIONES:**
-- Responde con RIGOR ACADÉMICO máximo
-- Usa terminología técnica precisa
-- Incluye TODOS los detalles relevantes dentro del límite
-- Usa formato markdown (tablas, listas, negritas)
-- Cita fuentes académicas al final
-- NO inventes información
-- NO omitas detalles por brevedad
-
-**FUENTES VÁLIDAS:**
-Gray's Anatomy, Guyton & Hall, Robbins, Harrison's, UpToDate, Guías ESC/AHA/ACC/NICE/COFEPRIS"""
-
-        response = self.client.chat.complete(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system_msg},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=self.temp,
-            max_tokens=max_tokens  # Límite específico por chunk
         )
 
         return response.choices[0].message.content
