@@ -7,7 +7,9 @@ from src.main import Lisabella
 
 app = Flask(__name__)
 CORS(app)
-lisabella = Lisabella()
+
+# ⚠️ QUITAR esta línea - causa problemas de inicialización
+# lisabella = Lisabella()
 
 @app.route('/ask', methods=['POST'])
 def ask():
@@ -17,12 +19,15 @@ def ask():
     if not question:
         return jsonify({'status': 'error', 'response': 'Por favor, escribe una pregunta'}), 400
     
-    result = lisabella.ask(question)
+    # ✅ CREAR INSTANCIA DENTRO DEL MÉTODO
+    lisabella = Lisabella()
+    result = lisabella.ask(question)  # ✅ ask() es correcto
+    
     return jsonify(result)
 
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({'status': 'ok', 'message': 'Lisabella está funcionando'})
+    return jsonify({'status': 'ok', 'message': 'Lisabella está funcionando', 'version': '1.0'})
 
 if __name__ == '__main__':
     print("🏥 Lisabella backend iniciado en http://localhost:5000")
