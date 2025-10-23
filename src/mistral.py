@@ -1,5 +1,6 @@
 import os
 import time
+import re
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 # ✅ IMPORTACIÓN SEGURA PARA RENDER
@@ -34,6 +35,56 @@ class MistralClient:
         self.base_retry_delay = 2
         self.api_timeout = 60
 
+    def _clean_text_formatting(self, text):
+        """
+        🆕 CORRECCIÓN: Limpia el texto eliminando saltos de línea incorrectos
+        que rompen palabras y mejoran el formato general.
+        """
+        if not text:
+            return text
+        
+        # 1. Unir palabras divididas por saltos de línea
+        # Ejemplo: "embr\nionario" → "embrionario"
+        text = re.sub(r'([a-zA-Záéíóúñ])\s*\n\s*([a-zA-Záéíóúñ])', r'\1\2', text)
+        
+        # 2. Unir líneas muy cortas que probablemente son parte del mismo párrafo
+        lines = text.split('\n')
+        cleaned_lines = []
+        current_paragraph = ""
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                if current_paragraph:
+                    cleaned_lines.append(current_paragraph)
+                    current_paragraph = ""
+                cleaned_lines.append("")  # Mantener separación de párrafos
+            elif len(line) < 60 and not line.endswith(('.', ':', ';', '!', '?')):
+                # Línea corta, probablemente continuación
+                if current_paragraph:
+                    current_paragraph += " " + line
+                else:
+                    current_paragraph = line
+            else:
+                # Línea completa, empezar nuevo párrafo
+                if current_paragraph:
+                    cleaned_lines.append(current_paragraph)
+                current_paragraph = line
+        
+        if current_paragraph:
+            cleaned_lines.append(current_paragraph)
+        
+        # 3. Reconstruir el texto con formato mejorado
+        cleaned_text = '\n'.join(cleaned_lines)
+        
+        # 4. Limpiar espacios múltiples
+        cleaned_text = re.sub(r' +', ' ', cleaned_text)
+        
+        # 5. Limpiar saltos de línea múltiples (máximo 2 seguidos)
+        cleaned_text = re.sub(r'\n{3,}', '\n\n', cleaned_text)
+        
+        return cleaned_text.strip()
+
     def generate_stream(self, question, domain, special_command=None):
         """
         🚀 NUEVO: Genera respuesta con STREAMING REAL de Mistral.
@@ -55,12 +106,23 @@ class MistralClient:
             )
             
             # Generator que envía cada chunk conforme llega
+            full_response = ""
             for chunk in stream:
                 if chunk.data.choices:
                     delta = chunk.data.choices[0].delta.content
                     if delta:
+                        full_response += delta
+                        # Enviar chunk limpio
                         yield delta
                         
+            # 🆕 CORRECCIÓN: Limpiar el texto completo al final también
+            # (para casos donde el streaming termina)
+            if full_response:
+                cleaned_final = self._clean_text_formatting(full_response)
+                if cleaned_final != full_response:
+                    # Si hubo cambios, enviar versión corregida
+                    yield "\n\n[Formato corregido automáticamente]"
+                    
         except Exception as e:
             error_str = str(e).lower()
             
@@ -86,7 +148,10 @@ class MistralClient:
                         max_tokens=4000
                     )
                     result = future.result(timeout=self.api_timeout)
-                return result
+                
+                # 🆕 CORRECCIÓN: Aplicar limpieza de formato al resultado
+                cleaned_result = self._clean_text_formatting(result)
+                return cleaned_result
 
             except TimeoutError:
                 print(f"⏳ Timeout en intento {attempt + 1}/{self.max_retries}")
