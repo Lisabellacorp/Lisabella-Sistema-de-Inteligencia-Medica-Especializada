@@ -2,6 +2,9 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 import sys
+import signal
+import time
+from datetime import datetime
 
 # ✅ FIX: Agregar directorio raíz al path (compatible con Render)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -10,10 +13,10 @@ from src.main import Lisabella
 
 app = Flask(__name__)
 
-# CORS: Permitir llamadas desde cualquier origen
+# CORS: Restringir a frontend en producción
 CORS(app, resources={
     r"/*": {
-        "origins": ["*"],
+        "origins": ["https://lisabella.vercel.app"],  # 🔐 Cambiar a tu URL de Vercel
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type"]
     }
@@ -22,10 +25,14 @@ CORS(app, resources={
 # Inicializar Lisabella
 try:
     lisabella = Lisabella()
-    print("✅ Lisabella inicializada correctamente")
+    print(f"✅ [{datetime.now()}] Lisabella inicializada correctamente")
 except Exception as e:
-    print(f"❌ Error al inicializar Lisabella: {str(e)}")
+    print(f"❌ [{datetime.now()}] Error al inicializar Lisabella: {str(e)}")
     lisabella = None
+
+# Manejador de timeout
+def timeout_handler(signum, frame):
+    raise TimeoutError("Request excedió el tiempo máximo")
 
 @app.route('/ask', methods=['POST', 'OPTIONS'])
 def ask():
@@ -40,6 +47,10 @@ def ask():
         }), 500
     
     try:
+        # Establecer timeout de 110s (menor que el de Gunicorn: 120s)
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(110)
+        
         data = request.get_json()
         question = data.get('question', '')
         
@@ -49,16 +60,31 @@ def ask():
                 "response": "Pregunta vacía"
             }), 400
         
+        # Log de inicio para debug
+        start_time = time.time()
+        print(f"📥 [{datetime.now()}] Procesando pregunta: {question[:50]}...")
+        
         # Procesar pregunta con Lisabella
         result = lisabella.ask(question)
+        
+        # Log de éxito
+        print(f"✅ [{datetime.now()}] Respuesta generada en {time.time() - start_time:.2f}s")
         return jsonify(result)
     
+    except TimeoutError:
+        print(f"⏰ [{datetime.now()}] Timeout en /ask para: {question[:50]}")
+        return jsonify({
+            "status": "error",
+            "response": "Consulta demasiado compleja. Simplifica la pregunta."
+        }), 408
     except Exception as e:
-        print(f"❌ Error en /ask: {str(e)}")
+        print(f"❌ [{datetime.now()}] Error en /ask: {str(e)}")
         return jsonify({
             "status": "error",
             "response": f"Error del servidor: {str(e)}"
         }), 500
+    finally:
+        signal.alarm(0)  # Desactivar timeout
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -67,7 +93,8 @@ def health():
     return jsonify({
         "status": status,
         "message": "Lisabella está funcionando" if lisabella else "Sistema no inicializado",
-        "version": "1.0"
+        "version": "1.0",
+        "timestamp": str(datetime.now())
     }), 200 if lisabella else 500
 
 @app.route('/', methods=['GET'])
