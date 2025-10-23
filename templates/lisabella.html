@@ -10,12 +10,10 @@
         :root {
             --uas-azul: #003f7f;
             --uas-dorado: #d4af37;
-            --uas-blanco: #ffffff;
             --uas-gris: #6c757d;
             --uas-azul-claro: #4a90e2;
             --max-width: 1200px;
         }
-        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
@@ -25,7 +23,6 @@
             display: flex;
             flex-direction: column;
         }
-        
         .header {
             background: rgba(255,255,255,0.98);
             backdrop-filter: blur(15px);
@@ -35,21 +32,18 @@
             top: 0;
             z-index: 100;
         }
-        
         .header-container {
             max-width: var(--max-width);
             margin: 0 auto;
             padding: 1.5rem 2rem;
             text-align: center;
         }
-        
         .logo-section {
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 20px;
         }
-        
         .logo-uas {
             width: 80px;
             height: 80px;
@@ -65,21 +59,18 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             flex-shrink: 0;
         }
-        
         .title-section h1 {
             color: var(--uas-azul);
             font-size: 2rem;
             font-weight: 700;
             margin-bottom: 0.3rem;
         }
-        
         .title-section p {
             color: var(--uas-gris);
             font-size: 0.85rem;
             font-weight: 500;
             line-height: 1.4;
         }
-        
         .main-container {
             flex: 1;
             max-width: var(--max-width);
@@ -90,7 +81,6 @@
             flex-direction: column;
             gap: 1.5rem;
         }
-        
         .manifesto-box {
             background: linear-gradient(135deg, rgba(0,63,127,0.95) 0%, rgba(74,144,226,0.95) 100%);
             backdrop-filter: blur(15px);
@@ -102,7 +92,6 @@
             position: relative;
             overflow: hidden;
         }
-        
         .manifesto-box::before {
             content: '"';
             position: absolute;
@@ -112,7 +101,6 @@
             color: rgba(212,175,55,0.2);
             font-family: Georgia, serif;
         }
-        
         .manifesto-box p {
             font-size: 1.05rem;
             line-height: 1.8;
@@ -122,12 +110,10 @@
             z-index: 1;
             margin: 0;
         }
-        
         .manifesto-box strong {
             color: var(--uas-dorado);
             font-weight: 700;
         }
-        
         .chat-container {
             flex: 1;
             background: rgba(255,255,255,0.98);
@@ -140,7 +126,6 @@
             min-height: 500px;
             max-height: calc(100vh - 400px);
         }
-        
         .messages-area {
             flex: 1;
             overflow-y: auto;
@@ -150,43 +135,20 @@
             gap: 1.5rem;
             background: #f8f9fa;
         }
-        
-        .messages-area::-webkit-scrollbar {
-            width: 8px;
-        }
-        
-        .messages-area::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-        
-        .messages-area::-webkit-scrollbar-thumb {
-            background: var(--uas-azul-claro);
-            border-radius: 4px;
-        }
-        
-        .messages-area::-webkit-scrollbar-thumb:hover {
-            background: var(--uas-azul);
-        }
-        
+        .messages-area::-webkit-scrollbar { width: 8px; }
+        .messages-area::-webkit-scrollbar-track { background: #f1f1f1; }
+        .messages-area::-webkit-scrollbar-thumb { background: var(--uas-azul-claro); border-radius: 4px; }
         .message {
             display: flex;
             gap: 1rem;
             animation: slideIn 0.3s ease;
         }
-        
         @keyframes slideIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
-        .message.user {
-            justify-content: flex-end;
-        }
-        
-        .message.bot {
-            justify-content: flex-start;
-        }
-        
+        .message.user { justify-content: flex-end; }
+        .message.bot { justify-content: flex-start; }
         .message-bubble {
             max-width: 85%;
             padding: 1.2rem 1.5rem;
@@ -194,138 +156,25 @@
             word-wrap: break-word;
             line-height: 1.6;
         }
-        
         .message.user .message-bubble {
             background: linear-gradient(45deg, var(--uas-azul), var(--uas-azul-claro));
             color: white;
             border-bottom-right-radius: 5px;
             white-space: pre-wrap;
         }
-        
         .message.bot .message-bubble {
             background: white;
             color: #333;
             border: 2px solid #e0e0e0;
             border-bottom-left-radius: 5px;
         }
-        
-        .message.bot .message-bubble strong {
+        .message.bot .message-bubble strong { color: var(--uas-azul); }
+        .message.bot .message-bubble h1, .message.bot .message-bubble h2 {
             color: var(--uas-azul);
-        }
-        
-        .message.bot .message-bubble h1 {
-            color: var(--uas-azul);
-            margin: 1.5rem 0 1rem 0;
-            font-size: 1.5rem;
-            border-bottom: 3px solid var(--uas-dorado);
-            padding-bottom: 0.5rem;
-        }
-        
-        .message.bot .message-bubble h2 {
-            color: var(--uas-azul);
-            margin: 1.5rem 0 1rem 0;
-            font-size: 1.3rem;
             border-bottom: 2px solid var(--uas-dorado);
             padding-bottom: 0.5rem;
+            margin: 1.5rem 0 1rem 0;
         }
-        
-        .message.bot .message-bubble h3 {
-            color: var(--uas-azul);
-            margin: 1rem 0 0.5rem 0;
-            font-size: 1.1rem;
-        }
-        
-        .message.bot .message-bubble h4 {
-            color: var(--uas-azul);
-            margin: 0.8rem 0 0.4rem 0;
-            font-size: 1rem;
-        }
-        
-        .message.bot .message-bubble ul, 
-        .message.bot .message-bubble ol {
-            margin: 1rem 0 1rem 1.5rem;
-        }
-        
-        .message.bot .message-bubble li {
-            margin: 0.5rem 0;
-        }
-        
-        .table-wrapper {
-            width: 100%;
-            overflow-x: auto;
-            margin: 1.5rem 0;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        
-        .table-wrapper::-webkit-scrollbar {
-            height: 8px;
-        }
-        
-        .table-wrapper::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 4px;
-        }
-        
-        .table-wrapper::-webkit-scrollbar-thumb {
-            background: var(--uas-azul-claro);
-            border-radius: 4px;
-        }
-        
-        .table-wrapper::-webkit-scrollbar-thumb:hover {
-            background: var(--uas-azul);
-        }
-        
-        .message.bot .message-bubble table {
-            width: 100%;
-            min-width: 500px;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-            background: white;
-        }
-        
-        .message.bot .message-bubble table th,
-        .message.bot .message-bubble table td {
-            border: 1px solid #e0e0e0;
-            padding: 0.9rem 1rem;
-            text-align: left;
-            vertical-align: top;
-        }
-        
-        .message.bot .message-bubble table th {
-            background: linear-gradient(135deg, var(--uas-azul) 0%, var(--uas-azul-claro) 100%);
-            color: white;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        .message.bot .message-bubble table tbody tr:hover {
-            background: #f8f9fa;
-            transition: background 0.2s ease;
-        }
-        
-        .message.bot .message-bubble table td:first-child {
-            font-weight: 600;
-            color: var(--uas-azul);
-        }
-        
-        .message.bot .message-bubble code {
-            background: #f4f4f4;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-        }
-        
-        .message.bot .message-bubble hr {
-            border: none;
-            border-top: 1px solid #e0e0e0;
-            margin: 1.5rem 0;
-        }
-        
         .input-area {
             padding: 1.5rem;
             border-top: 2px solid #e0e0e0;
@@ -333,7 +182,6 @@
             display: flex;
             gap: 1rem;
         }
-        
         .input-field {
             flex: 1;
             padding: 12px 20px;
@@ -341,28 +189,16 @@
             border-radius: 15px;
             font-size: 1rem;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            transition: all 0.3s ease;
             resize: none;
             min-height: 50px;
             max-height: 200px;
             overflow-y: auto;
         }
-        
         .input-field:focus {
             outline: none;
             border-color: var(--uas-azul);
             box-shadow: 0 0 0 3px rgba(0,63,127,0.1);
         }
-        
-        .input-field::-webkit-scrollbar {
-            width: 6px;
-        }
-        
-        .input-field::-webkit-scrollbar-thumb {
-            background: #ccc;
-            border-radius: 3px;
-        }
-        
         .send-btn {
             padding: 12px 28px;
             background: linear-gradient(45deg, var(--uas-azul), var(--uas-azul-claro));
@@ -371,42 +207,12 @@
             border-radius: 15px;
             cursor: pointer;
             font-weight: 600;
-            transition: all 0.3s ease;
             display: flex;
             align-items: center;
             gap: 8px;
             align-self: flex-end;
         }
-        
-        .send-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(0,63,127,0.3);
-        }
-        
-        .send-btn:active {
-            transform: translateY(0);
-        }
-        
-        .send-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .loading-spinner {
-            display: inline-block;
-            width: 18px;
-            height: 18px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
+        .send-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .status-badge {
             display: inline-block;
             padding: 6px 12px;
@@ -415,123 +221,15 @@
             font-weight: 600;
             margin-bottom: 0.8rem;
         }
-        
-        .status-approved {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .status-rejected {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        
-        .status-reformulate {
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeaa7;
-        }
-        
+        .status-approved { background: #d4edda; color: #155724; }
+        .status-rejected { background: #f8d7da; color: #721c24; }
         .footer {
             background: rgba(255,255,255,0.98);
-            backdrop-filter: blur(15px);
             border-top: 4px solid var(--uas-dorado);
             padding: 2rem;
             text-align: center;
-            margin-top: auto;
         }
-        
-        .footer-content {
-            max-width: var(--max-width);
-            margin: 0 auto;
-        }
-        
-        .footer-credit {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--uas-azul);
-            margin: 0.5rem 0;
-        }
-        
-        .footer-slogan {
-            font-size: 1rem;
-            color: var(--uas-dorado);
-            font-style: italic;
-            margin-top: 0.5rem;
-        }
-        
-        .footer-bleacher {
-            font-size: 0.9rem;
-            color: var(--uas-dorado);
-            font-weight: 600;
-            margin-top: 0.8rem;
-            letter-spacing: 1px;
-            opacity: 0.85;
-        }
-        
-        .footer-disclaimer {
-            margin-top: 1.5rem;
-            font-size: 0.85rem;
-            color: var(--uas-gris);
-            line-height: 1.6;
-        }
-        
-        @media (max-width: 768px) {
-            .header-container {
-                padding: 1rem;
-            }
-            
-            .logo-uas {
-                width: 60px;
-                height: 60px;
-                font-size: 1.5rem;
-            }
-            
-            .title-section h1 {
-                font-size: 1.5rem;
-            }
-            
-            .title-section p {
-                font-size: 0.75rem;
-            }
-            
-            .main-container {
-                padding: 1rem;
-            }
-            
-            .manifesto-box {
-                padding: 1rem 1.5rem;
-            }
-            
-            .manifesto-box p {
-                font-size: 0.95rem;
-            }
-            
-            .chat-container {
-                max-height: calc(100vh - 350px);
-            }
-            
-            .messages-area {
-                padding: 1rem;
-            }
-            
-            .message-bubble {
-                max-width: 92%;
-                padding: 1rem;
-            }
-            
-            .input-area {
-                padding: 1rem;
-                flex-direction: column;
-            }
-            
-            .send-btn {
-                width: 100%;
-                justify-content: center;
-            }
-        }
+        .footer-credit { font-size: 1.1rem; font-weight: 700; color: var(--uas-azul); }
     </style>
 </head>
 <body>
@@ -541,258 +239,102 @@
                 <div class="logo-uas">⚕️</div>
                 <div class="title-section">
                     <h1>Lisabella</h1>
-                    <p>Sistema de Inteligencia Médica Especializada | Motor validado con estándares Joint Commission, AHA/ESC y COFEPRIS</p>
+                    <p>Sistema de Inteligencia Médica Especializada</p>
                 </div>
             </div>
         </div>
     </header>
     <div class="main-container">
         <div class="manifesto-box">
-            <p><strong>Cada diagnóstico es una vida.</strong> Cada duda, una oportunidad de salvar a alguien. Consulto con el rigor que merece quien confía en ti, porque en medicina no hay lugar para la mediocridad. <strong>Solo certeza, compasión y ciencia.</strong></p>
+            <p><strong>Cada diagnóstico es una vida.</strong> Cada duda, una oportunidad de salvar a alguien.</p>
         </div>
         <div class="chat-container">
             <div class="messages-area" id="messagesArea">
                 <div class="message bot">
                     <div class="message-bubble">
-                        <strong>¡Hola! Soy Lisabella</strong><br>
-                        Tu asistente médico especializado en ciencias de la salud.<br><br>
-                        
-                        <strong>📚 PUEDO AYUDARTE A:</strong><br>
-                        • Estudiar y comprender conceptos médicos complejos<br>
-                        • Resolver dudas clínicas con evidencia verificable<br>
-                        • Analizar y comentar casos clínicos completos<br>
-                        • Revisar notas médicas hospitalarias<br>
-                        • Calcular dosis y diluciones farmacológicas<br>
-                        • Explicar farmacología (mecanismos, dosis, interacciones)<br>
-                        • Comparar diagnósticos diferenciales paso a paso<br><br>
-                        
-                        <strong>🔬 CIENCIAS BÁSICAS:</strong><br>
-                        <em>Anatomía • Histología • Embriología • Fisiología • Bioquímica • Farmacología • Toxicología • Microbiología • Parasitología • Genética • Inmunología • Patología • Epidemiología • Semiología</em><br><br>
-                        
-                        <strong>🏥 ESPECIALIDADES CLÍNICAS:</strong><br>
-                        <em>Medicina Interna • Cardiología • Neumología • Nefrología • Gastroenterología • Endocrinología • Hematología • Oncología • Infectología • Neurología • Neurociencias Cognitivas • Pediatría • Ginecología/Obstetricia • Dermatología • Psiquiatría • Medicina de Emergencia • Medicina Intensiva • Medicina Familiar • Geriatría • Medicina Paliativa</em><br><br>
-                        
-                        <strong>🔪 ESPECIALIDADES QUIRÚRGICAS:</strong><br>
-                        <em>Traumatología • Cirugía General • Cirugía Cardiovascular • Cirugía Plástica • Oftalmología • Otorrinolaringología • Urología • Anestesiología</em><br><br>
-                        
-                        <strong>📊 DIAGNÓSTICO:</strong><br>
-                        <em>Radiología • Medicina Nuclear • Genética Clínica</em><br><br>
-                        
+                        <strong>¡Hola! Soy Lisabella</strong><br><br>
                         <strong>💡 COMANDOS ESPECIALES:</strong><br>
-                        • <code>revisar nota médica</code> - Auditoría según JCI/COFEPRIS<br>
-                        • <code>calculo de medicamentos</code> - Dosis, diluciones, velocidades de infusión<br>
-                        • <code>elaborar nota médica</code> - Generar plantilla SOAP completa<br>
-                        • <code>valoracion de paciente</code> - Orientación diagnóstica con diferenciales<br>
-                        • <code>apoyo en estudio [tema]</code> - Modo educativo con analogías<br><br>
-                        
-                        <strong>¿En qué puedo ayudarte hoy?</strong>
+                        • <code>revisar nota médica</code><br>
+                        • <code>calculo de medicamentos</code><br>
+                        • <code>elaborar nota médica</code><br>
+                        • <code>valoracion de paciente</code><br>
+                        • <code>apoyo en estudio [tema]</code><br>
                     </div>
                 </div>
             </div>
             <div class="input-area">
-                <textarea 
-                    class="input-field" 
-                    id="questionInput" 
-                    placeholder="Escribe tu pregunta médica aquí... (Shift+Enter para salto de línea)"
-                    rows="1"
-                ></textarea>
-                <button class="send-btn" id="sendBtn" onclick="sendQuestion()">
-                    <span id="btnText">Enviar</span>
-                    <i class="fas fa-paper-plane"></i>
+                <textarea class="input-field" id="inp" placeholder="Pregunta médica..." rows="1"></textarea>
+                <button class="send-btn" id="btn" onclick="send()">
+                    <span id="txt">Enviar</span>
                 </button>
             </div>
         </div>
     </div>
     <footer class="footer">
-        <div class="footer-content">
-            <div class="footer-credit">Con amor para mi hija 💚</div>
-            <div class="footer-credit">JESÚS RAYMUNDO VEGA BONILLA</div>
-            <div class="footer-slogan">Lisabellacorp®</div>
-            <div class="footer-bleacher">NACION BLEACHER</div>
-            <div class="footer-disclaimer">
-                <strong>Disclaimer:</strong> Lisabella es un motor de conocimiento médico especializado alimentado por librerías médicas validadas. Arquitectura de respuesta precisa basada en evidencia científica.
-            </div>
-        </div>
+        <div class="footer-credit">Con amor para mi hija 💚 - JESÚS RAYMUNDO VEGA BONILLA</div>
     </footer>
     <script>
-        const messagesArea = document.getElementById('messagesArea');
-        const questionInput = document.getElementById('questionInput');
-        const sendBtn = document.getElementById('sendBtn');
-        const btnText = document.getElementById('btnText');
+        const area = document.getElementById('messagesArea');
+        const inp = document.getElementById('inp');
+        const btn = document.getElementById('btn');
+        const txt = document.getElementById('txt');
         
-        questionInput.addEventListener('input', function() {
+        inp.addEventListener('input', function() {
             this.style.height = 'auto';
             this.style.height = Math.min(this.scrollHeight, 200) + 'px';
         });
         
-        questionInput.addEventListener('keydown', function(e) {
+        inp.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                sendQuestion();
+                send();
             }
         });
         
-        async function sendQuestion() {
-            const question = questionInput.value.trim();
-            if (!question) return;
+        async function send() {
+            const q = inp.value.trim();
+            if (!q) return;
             
-            addMessage('user', question);
-            questionInput.value = '';
-            questionInput.style.height = 'auto';
-            
-            sendBtn.disabled = true;
-            btnText.innerHTML = '<span class="loading-spinner"></span>';
+            addMsg('user', q);
+            inp.value = '';
+            inp.style.height = 'auto';
+            btn.disabled = true;
+            txt.textContent = '...';
             
             try {
-                const response = await callBackend(question);
+                const res = await fetch('/ask', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({question: q})
+                });
+                const data = await res.json();
                 
-                if (response.status === 'rejected') {
-                    addMessage('bot', `
-                        <span class="status-badge status-rejected">❌ Pregunta Rechazada</span><br>
-                        ${response.response || ''}
-                    `);
-                } else if (response.status === 'reformulate') {
-                    addMessage('bot', `
-                        <span class="status-badge status-reformulate">💡 Reformulación Sugerida</span><br>
-                        ${response.response || ''}
-                    `);
+                if (data.status === 'rejected') {
+                    addMsg('bot', `<span class="status-badge status-rejected">❌ Rechazada</span><br>${data.response || ''}`);
                 } else {
-                    const responseHtml = formatMarkdown(response.response);
-                    addMessage('bot', `
-                        <span class="status-badge status-approved">✅ Respuesta Procesada</span><br>
-                        ${responseHtml}
-                    `);
+                    addMsg('bot', `<span class="status-badge status-approved">✅ Aprobada</span><br>${data.response || ''}`);
                 }
-            } catch (error) {
-                if (error.message.includes('502') || error.message.includes('timeout')) {
-                    addMessage('bot', `
-                        <strong>⏱️ Consulta demasiado compleja</strong><br><br>
-                        Esta pregunta requiere una respuesta muy extensa.<br><br>
-                        <strong>Intenta:</strong><br>
-                        • Dividirla en partes más específicas<br>
-                        • Enfocarte en un solo aspecto (ej: solo irrigación, solo histología)<br><br>
-                        <strong>Ejemplo más manejable:</strong><br>
-                        "Describe la irrigación arterial y venosa de los pulmones"
-                    `);
-                } else {
-                    addMessage('bot', `
-                        <strong>❌ Error temporal del servidor</strong><br><br>
-                        Intenta nuevamente en unos segundos.<br><br>
-                        Si el problema persiste, reformula tu pregunta de forma más específica.
-                    `);
-                }
+            } catch (e) {
+                addMsg('bot', '<strong>❌ Error del servidor</strong>');
             }
             
-            sendBtn.disabled = false;
-            btnText.textContent = 'Enviar';
-            questionInput.focus();
+            btn.disabled = false;
+            txt.textContent = 'Enviar';
+            inp.focus();
         }
         
-        async function callBackend(question) {
-            const response = await fetch('/ask', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ question: question })
-            });
-            
-            if (!response.ok) {
-                throw new Error('Error conectando con el servidor');
-            }
-            
-            return await response.json();
-        }
-        
-        function formatMarkdown(text) {
-            if (!text) return '';
-            
-            let lines = text.split('\n');
-            let result = '';
-            let inList = false;
-            let listType = '';
-            
-            for (let line of lines) {
-                if (line.match(/^#### /)) {
-                    if (inList) { result += `</${listType}>`; inList = false; }
-                    result += '<h4>' + line.replace(/^#### /, '') + '</h4>';
-                } else if (line.match(/^### /)) {
-                    if (inList) { result += `</${listType}>`; inList = false; }
-                    result += '<h3>' + line.replace(/^### /, '') + '</h3>';
-                } else if (line.match(/^## /)) {
-                    if (inList) { result += `</${listType}>`; inList = false; }
-                    result += '<h2>' + line.replace(/^## /, '') + '</h2>';
-                } else if (line.match(/^# /)) {
-                    if (inList) { result += `</${listType}>`; inList = false; }
-                    result += '<h1>' + line.replace(/^# /, '') + '</h1>';
-                }
-                else if (line.match(/^[\-\•] /)) {
-                    if (!inList || listType !== 'ul') {
-                        if (inList) result += `</${listType}>`;
-                        result += '<ul>';
-                        inList = true;
-                        listType = 'ul';
-                    }
-                    result += '<li>' + line.replace(/^[\-\•] /, '') + '</li>';
-                }
-                else if (line.match(/^\d+\. /)) {
-                    if (!inList || listType !== 'ol') {
-                        if (inList) result += `</${listType}>`;
-                        result += '<ol>';
-                        inList = true;
-                        listType = 'ol';
-                    }
-                    result += '<li>' + line.replace(/^\d+\. /, '') + '</li>';
-                }
-                else if (line.match(/^---+$/)) {
-                    if (inList) { result += `</${listType}>`; inList = false; }
-                    result += '<hr>';
-                }
-                else if (line.trim()) {
-                    if (inList) { result += `</${listType}>`; inList = false; }
-                    result += line + '<br>';
-                } else {
-                    if (inList) { result += `</${listType}>`; inList = false; }
-                    result += '<br>';
-                }
-            }
-            
-            if (inList) result += `</${listType}>`;
-            
-            result = result
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/`(.*?)`/g, '<code>$1</code>');
-            
-            return result;
-        }
-        
-        function addMessage(sender, content) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${sender}`;
-            
+        function addMsg(sender, content) {
+            const div = document.createElement('div');
+            div.className = `message ${sender}`;
             const bubble = document.createElement('div');
             bubble.className = 'message-bubble';
             bubble.innerHTML = content;
-            
-            const tables = bubble.querySelectorAll('table');
-            tables.forEach(table => {
-                const wrapper = document.createElement('div');
-                wrapper.className = 'table-wrapper';
-                table.parentNode.insertBefore(wrapper, table);
-                wrapper.appendChild(table);
-            });
-            
-            messageDiv.appendChild(bubble);
-            messagesArea.appendChild(messageDiv);
-            
-            if (sender === 'bot') {
-                setTimeout(() => {
-                    messageDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 100);
-            } else {
-                messagesArea.scrollTop = messagesArea.scrollHeight;
-            }
+            div.appendChild(bubble);
+            area.appendChild(div);
+            area.scrollTop = area.scrollHeight;
         }
         
-        questionInput
+        inp.focus();
+    </script>
+</body>
+</html>
