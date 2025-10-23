@@ -546,12 +546,10 @@
             </div>
         </div>
     </header>
-
     <div class="main-container">
         <div class="manifesto-box">
             <p><strong>Cada diagnóstico es una vida.</strong> Cada duda, una oportunidad de salvar a alguien. Consulto con el rigor que merece quien confía en ti, porque en medicina no hay lugar para la mediocridad. <strong>Solo certeza, compasión y ciencia.</strong></p>
         </div>
-
         <div class="chat-container">
             <div class="messages-area" id="messagesArea">
                 <div class="message bot">
@@ -563,7 +561,8 @@
                         • Estudiar y comprender conceptos médicos complejos<br>
                         • Resolver dudas clínicas con evidencia verificable<br>
                         • Analizar y comentar casos clínicos completos<br>
-                        • Revisar y corregir notas médicas hospitalarias<br>
+                        • Revisar notas médicas hospitalarias<br>
+                        • Calcular dosis y diluciones farmacológicas<br>
                         • Explicar farmacología (mecanismos, dosis, interacciones)<br>
                         • Comparar diagnósticos diferenciales paso a paso<br><br>
                         
@@ -581,16 +580,15 @@
                         
                         <strong>💡 COMANDOS ESPECIALES:</strong><br>
                         • <code>revisar nota médica</code> - Auditoría según JCI/COFEPRIS<br>
-                        • <code>corregir nota médica</code> - Identificar errores de formato<br>
-                        • <code>elaborar nota médica</code> - Generar plantilla SOAP<br>
-                        • <code>valoracion de paciente</code> - Orientación diagnóstica<br>
-                        • <code>apoyo en estudio [tema]</code> - Modo educativo<br><br>
+                        • <code>calculo de medicamentos</code> - Dosis, diluciones, velocidades de infusión<br>
+                        • <code>elaborar nota médica</code> - Generar plantilla SOAP completa<br>
+                        • <code>valoracion de paciente</code> - Orientación diagnóstica con diferenciales<br>
+                        • <code>apoyo en estudio [tema]</code> - Modo educativo con analogías<br><br>
                         
                         <strong>¿En qué puedo ayudarte hoy?</strong>
                     </div>
                 </div>
             </div>
-
             <div class="input-area">
                 <textarea 
                     class="input-field" 
@@ -605,7 +603,6 @@
             </div>
         </div>
     </div>
-
     <footer class="footer">
         <div class="footer-content">
             <div class="footer-credit">Con amor para mi hija 💚</div>
@@ -617,37 +614,35 @@
             </div>
         </div>
     </footer>
-
     <script>
         const messagesArea = document.getElementById('messagesArea');
         const questionInput = document.getElementById('questionInput');
         const sendBtn = document.getElementById('sendBtn');
         const btnText = document.getElementById('btnText');
-
-        // Auto-resize textarea
+        
         questionInput.addEventListener('input', function() {
             this.style.height = 'auto';
             this.style.height = Math.min(this.scrollHeight, 200) + 'px';
         });
-
-        // Enter para enviar, Shift+Enter para nueva línea
+        
         questionInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendQuestion();
             }
         });
-
+        
         async function sendQuestion() {
             const question = questionInput.value.trim();
             if (!question) return;
-
+            
             addMessage('user', question);
             questionInput.value = '';
             questionInput.style.height = 'auto';
+            
             sendBtn.disabled = true;
             btnText.innerHTML = '<span class="loading-spinner"></span>';
-
+            
             try {
                 const response = await callBackend(question);
                 
@@ -669,7 +664,6 @@
                     `);
                 }
             } catch (error) {
-                // Detectar tipo de error
                 if (error.message.includes('502') || error.message.includes('timeout')) {
                     addMessage('bot', `
                         <strong>⏱️ Consulta demasiado compleja</strong><br><br>
@@ -688,12 +682,12 @@
                     `);
                 }
             }
-
+            
             sendBtn.disabled = false;
             btnText.textContent = 'Enviar';
             questionInput.focus();
         }
-
+        
         async function callBackend(question) {
             const response = await fetch('/ask', {
                 method: 'POST',
@@ -702,14 +696,14 @@
                 },
                 body: JSON.stringify({ question: question })
             });
-
+            
             if (!response.ok) {
                 throw new Error('Error conectando con el servidor');
             }
-
+            
             return await response.json();
         }
-
+        
         function formatMarkdown(text) {
             if (!text) return '';
             
@@ -719,7 +713,6 @@
             let listType = '';
             
             for (let line of lines) {
-                // Headers
                 if (line.match(/^#### /)) {
                     if (inList) { result += `</${listType}>`; inList = false; }
                     result += '<h4>' + line.replace(/^#### /, '') + '</h4>';
@@ -733,7 +726,6 @@
                     if (inList) { result += `</${listType}>`; inList = false; }
                     result += '<h1>' + line.replace(/^# /, '') + '</h1>';
                 }
-                // Listas no ordenadas
                 else if (line.match(/^[\-\•] /)) {
                     if (!inList || listType !== 'ul') {
                         if (inList) result += `</${listType}>`;
@@ -743,7 +735,6 @@
                     }
                     result += '<li>' + line.replace(/^[\-\•] /, '') + '</li>';
                 }
-                // Listas ordenadas
                 else if (line.match(/^\d+\. /)) {
                     if (!inList || listType !== 'ol') {
                         if (inList) result += `</${listType}>`;
@@ -753,12 +744,10 @@
                     }
                     result += '<li>' + line.replace(/^\d+\. /, '') + '</li>';
                 }
-                // Líneas separadoras
                 else if (line.match(/^---+$/)) {
                     if (inList) { result += `</${listType}>`; inList = false; }
                     result += '<hr>';
                 }
-                // Líneas normales
                 else if (line.trim()) {
                     if (inList) { result += `</${listType}>`; inList = false; }
                     result += line + '<br>';
@@ -770,7 +759,6 @@
             
             if (inList) result += `</${listType}>`;
             
-            // Formato inline
             result = result
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -778,7 +766,7 @@
             
             return result;
         }
-
+        
         function addMessage(sender, content) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
@@ -787,7 +775,6 @@
             bubble.className = 'message-bubble';
             bubble.innerHTML = content;
             
-            // Envolver tablas en contenedor con scroll
             const tables = bubble.querySelectorAll('table');
             tables.forEach(table => {
                 const wrapper = document.createElement('div');
@@ -799,18 +786,13 @@
             messageDiv.appendChild(bubble);
             messagesArea.appendChild(messageDiv);
             
-            // Si es respuesta del bot, hacer scroll al inicio de la respuesta
             if (sender === 'bot') {
                 setTimeout(() => {
                     messageDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }, 100);
             } else {
-                // Si es pregunta del usuario, scroll al final normal
                 messagesArea.scrollTop = messagesArea.scrollHeight;
             }
         }
-
-        questionInput.focus();
-    </script>
-</body>
-</html>
+        
+        questionInput
