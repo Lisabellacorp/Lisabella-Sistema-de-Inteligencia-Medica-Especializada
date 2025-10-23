@@ -112,13 +112,200 @@ Por favor, reporta este error al equipo de desarrollo incluyendo:
 • Este mensaje de error completo"""
             }
     
+    # ═══════════════════════════════════════════════════════
+    # MÉTODOS DE CHUNKING (NUEVO - Para evitar timeout)
+    # ═══════════════════════════════════════════════════════
+    
+    def generate_standard_chunks(self, question, domain):
+        """
+        Genera respuesta estándar en 4 CHUNKS COMPLETOS.
+        CADA CHUNK tiene calidad completa, no se reduce información.
+        """
+        sections = [
+            {
+                'title': '## 📖 Definición',
+                'prompt': f"""Proporciona la DEFINICIÓN MÉDICA COMPLETA de: {question}
+
+Incluye:
+- Concepto fundamental
+- Clasificación (si aplica)
+- Terminología técnica precisa
+
+Responde con rigor académico y cita fuentes al final.""",
+                'max_tokens': 1200  # Espacio completo para definición detallada
+            },
+            {
+                'title': '## 🔬 Detalles Clínicos',
+                'prompt': f"""Sobre {question}, proporciona DETALLES CLÍNICOS COMPLETOS:
+
+- Etiología y factores de riesgo
+- Fisiopatología detallada
+- Características diagnósticas clave
+- Cuadro clínico típico
+
+Usa tablas, listas y formato markdown. Cita fuentes.""",
+                'max_tokens': 1500  # Más espacio para detalles complejos
+            },
+            {
+                'title': '## 💊 Aplicación Práctica',
+                'prompt': f"""Sobre {question}, explica la APLICACIÓN CLÍNICA COMPLETA:
+
+- Diagnóstico (criterios, estudios)
+- Tratamiento farmacológico (dosis específicas)
+- Tratamiento no farmacológico
+- Pronóstico y seguimiento
+
+Sé específico con dosis, vías y duraciones. Cita guías clínicas.""",
+                'max_tokens': 1500  # Espacio para detalles terapéuticos
+            },
+            {
+                'title': '## ⚠️ Advertencias y Referencias',
+                'prompt': f"""Sobre {question}, proporciona:
+
+**ADVERTENCIAS IMPORTANTES:**
+- Contraindicaciones absolutas
+- Efectos adversos críticos
+- Interacciones peligrosas
+- Signos de alarma
+
+**FUENTES BIBLIOGRÁFICAS:**
+Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guías ESC/AHA, UpToDate, etc.)""",
+                'max_tokens': 1000  # Advertencias y fuentes
+            }
+        ]
+        
+        for section in sections:
+            try:
+                # Generar contenido COMPLETO de la sección
+                content = self.mistral.generate_chunk(
+                    prompt=section['prompt'],
+                    domain=domain,
+                    max_tokens=section['max_tokens']
+                )
+                
+                # Devolver título + contenido
+                yield f"{section['title']}\n\n{content}"
+                
+            except Exception as e:
+                print(f"❌ Error generando chunk: {str(e)}")
+                yield f"{section['title']}\n\n⚠️ Error al generar esta sección."
+    
+    def generate_special_chunks(self, question, domain, special_command):
+        """
+        Genera respuesta para COMANDOS ESPECIALES en chunks.
+        Mantiene la CALIDAD COMPLETA de cada sección.
+        """
+        
+        if special_command == "revision_nota":
+            sections = [
+                ('## ✅ Componentes Presentes', 
+                 f"Analiza QUÉ COMPONENTES SÍ ESTÁN en esta nota médica:\n\n{question}\n\nLista detallada con ejemplos específicos.", 
+                 1200),
+                ('## ❌ Componentes Faltantes', 
+                 f"Identifica QUÉ FALTA en esta nota médica según JCI/COFEPRIS:\n\n{question}\n\nPrioriza por criticidad.", 
+                 1200),
+                ('## ⚠️ Errores Detectados', 
+                 f"Identifica ERRORES de formato, dosis, abreviaturas en:\n\n{question}", 
+                 1000),
+                ('## 📋 Cumplimiento Legal', 
+                 f"Evalúa cumplimiento de normas (COFEPRIS, JCI, Clínica Mayo) en:\n\n{question}", 
+                 800),
+                ('## 💡 Recomendaciones', 
+                 f"Da recomendaciones PRIORITARIAS y opcionales para mejorar:\n\n{question}", 
+                 1000)
+            ]
+        
+        elif special_command == "correccion_nota":
+            sections = [
+                ('## ❌ Errores Detectados', 
+                 f"Identifica TODOS los errores (formato, ortografía, dosis) en:\n\n{question}", 
+                 1500),
+                ('## ✅ Nota Corregida', 
+                 f"Proporciona versión CORREGIDA COMPLETA de:\n\n{question}\n\nMarca cambios claramente.", 
+                 2000),
+                ('## 💡 Sugerencias Adicionales', 
+                 f"Da sugerencias para MEJORAR la calidad de:\n\n{question}", 
+                 800)
+            ]
+        
+        elif special_command == "elaboracion_nota":
+            # Para elaboración, generar secciones SOAP completas
+            sections = [
+                ('## DATOS Y SUBJETIVO (S)', 
+                 f"Genera sección completa de DATOS DEL PACIENTE y SUBJETIVO para:\n\n{question}\n\nUsa formato profesional con todos los campos.", 
+                 1200),
+                ('## OBJETIVO (O)', 
+                 f"Genera sección completa OBJETIVO (signos vitales, exploración física) para:\n\n{question}", 
+                 1200),
+                ('## ANÁLISIS (A)', 
+                 f"Genera sección completa de ANÁLISIS (impresión diagnóstica, justificación) para:\n\n{question}", 
+                 1000),
+                ('## PLAN (P)', 
+                 f"Genera sección completa de PLAN (estudios, tratamiento, pronóstico) para:\n\n{question}", 
+                 1200)
+            ]
+        
+        elif special_command == "valoracion":
+            sections = [
+                ('## 📋 Resumen del Caso', 
+                 f"Resume el caso clínico en 3-4 líneas:\n\n{question}", 
+                 600),
+                ('## 🎯 Hipótesis Diagnósticas', 
+                 f"Proporciona diagnóstico más probable y 3 diferenciales COMPLETOS con justificación para:\n\n{question}", 
+                 1500),
+                ('## 🔬 Estudios Sugeridos', 
+                 f"Lista COMPLETA de laboratorios e imagenología prioritarios para:\n\n{question}", 
+                 1000),
+                ('## 💊 Abordaje Terapéutico', 
+                 f"Plan terapéutico COMPLETO (medidas generales, fármacos con dosis, criterios de referencia) para:\n\n{question}", 
+                 1500),
+                ('## ⚠️ Signos de Alarma', 
+                 f"Lista completa de signos de alarma y criterios de derivación urgente para:\n\n{question}", 
+                 800)
+            ]
+        
+        elif special_command == "study_mode":
+            sections = [
+                ('## 📚 Conceptos Fundamentales', 
+                 f"Explica los CONCEPTOS BÁSICOS COMPLETOS de: {question}\n\nCon definiciones claras.", 
+                 1200),
+                ('## 🧠 Analogías y Memorización', 
+                 f"Crea ANALOGÍAS DETALLADAS y técnicas de memorización para: {question}", 
+                 1200),
+                ('## 🔗 Correlación Clínica', 
+                 f"Explica la APLICACIÓN CLÍNICA COMPLETA con casos prácticos de: {question}", 
+                 1200),
+                ('## 💡 Tips de Estudio', 
+                 f"Proporciona estrategias COMPLETAS para estudiar efectivamente: {question}", 
+                 800)
+            ]
+        
+        else:
+            # Fallback a estándar
+            yield from self.generate_standard_chunks(question, domain)
+            return
+        
+        # Generar cada sección
+        for title, prompt, max_tok in sections:
+            try:
+                content = self.mistral.generate_chunk(
+                    prompt=prompt,
+                    domain=domain,
+                    max_tokens=max_tok
+                )
+                yield f"{title}\n\n{content}"
+            except Exception as e:
+                print(f"❌ Error en chunk especial: {str(e)}")
+                yield f"{title}\n\n⚠️ Error al generar esta sección."
+    
+    # ═══════════════════════════════════════════════════════
+    # MÉTODOS LEGACY (mantener compatibilidad)
+    # ═══════════════════════════════════════════════════════
+    
     def analyze_note(self, note_text):
         """Analizar nota médica completa (método legacy, ahora se usa clasificación automática)"""
-        
         try:
-            # Usar el flujo normal de ask() que detecta notas automáticamente
             return self.ask(note_text)
-        
         except Exception as e:
             print(f"❌ Error al analizar nota: {str(e)}")
             return {
@@ -128,7 +315,6 @@ Por favor, reporta este error al equipo de desarrollo incluyendo:
     
     def get_help(self):
         """Obtener ayuda sobre comandos especiales"""
-        
         return {
             "status": "success",
             "response": """## 🏥 **Comandos Especiales de Lisabella**
@@ -247,6 +433,4 @@ Modo educativo con analogías, ejemplos clínicos y correlación práctica.
 
 if __name__ == "__main__":
     lisabella = Lisabella()
-    
-    # Modo CLI interactivo
     lisabella.cli()
