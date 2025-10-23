@@ -18,7 +18,7 @@ app = Flask(__name__)
 # CORS: Restringir a frontend en producción
 CORS(app, resources={
     r"/*": {
-        "origins": ["https://lisabella.vercel.app", "http://localhost:5000", "*"],
+        "origins": ["*"],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type"]
     }
@@ -95,7 +95,7 @@ def ask():
 
 @app.route('/ask_stream', methods=['POST', 'OPTIONS'])
 def ask_stream():
-    """Endpoint CON STREAMING para respuestas largas - CALIDAD COMPLETA"""
+    """Endpoint CON STREAMING - versión funcional"""
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -115,7 +115,7 @@ def ask_stream():
         print(f"📥 STREAM [{datetime.now()}] Procesando: {question[:50]}...")
         
         def generate():
-            """Generator que envía chunks progresivamente SIN REDUCIR CALIDAD"""
+            """Generator que simula streaming dividiendo la respuesta"""
             try:
                 # 1. Clasificar pregunta (rápido, <1s)
                 classification = lisabella.wrapper.classify(question)
@@ -129,35 +129,30 @@ def ask_stream():
                 
                 # 3. Aprobada → enviar metadata inicial
                 domain = classification.get("domain", "medicina general")
-                special_cmd = classification.get("special_command")
-                note_analysis = classification.get("note_analysis", False)
                 
                 yield json.dumps({
                     "type": "init",
                     "domain": domain,
-                    "special_command": special_cmd,
                     "status": "approved"
                 }) + '\n'
                 
-                # 4. Generar respuesta en chunks COMPLETOS
-                if special_cmd:
-                    # Comandos especiales (notas médicas, valoración, etc)
-                    chunks = lisabella.generate_special_chunks(question, domain, special_cmd)
-                elif note_analysis:
-                    # Análisis de nota médica detectado automáticamente
-                    chunks = lisabella.generate_special_chunks(question, domain, "valoracion")
-                else:
-                    # Pregunta estándar → dividir en secciones lógicas
-                    chunks = lisabella.generate_standard_chunks(question, domain)
+                # 4. Generar respuesta COMPLETA
+                response_obj = lisabella.ask(question)
+                full_response = response_obj.get("response", "")
                 
-                # 5. Enviar cada chunk conforme se genera
-                for i, chunk in enumerate(chunks):
-                    yield json.dumps({
-                        "type": "chunk",
-                        "index": i,
-                        "content": chunk
-                    }) + '\n'
-                    time.sleep(0.05)  # Pequeña pausa para no saturar
+                # 5. Dividir respuesta en chunks (por párrafos o líneas)
+                lines = full_response.split('\n')
+                chunk_size = max(3, len(lines) // 8)  # ~8 chunks
+                
+                for i in range(0, len(lines), chunk_size):
+                    chunk = '\n'.join(lines[i:i+chunk_size])
+                    if chunk.strip():
+                        yield json.dumps({
+                            "type": "chunk",
+                            "index": i // chunk_size,
+                            "content": chunk + '\n'
+                        }) + '\n'
+                        time.sleep(0.1)  # Pausa para simular streaming
                 
                 # 6. Finalizar
                 yield json.dumps({"type": "done"}) + '\n'
@@ -212,7 +207,7 @@ def home():
             "/health": "GET - Estado del servidor",
             "/": "GET - Info del API"
         },
-        "frontend": "Despliega lisabella.html en Vercel y apunta a esta URL"
+        "frontend": "https://lisabellacorp.github.io/lisabella/"
     }), 200
 
 
