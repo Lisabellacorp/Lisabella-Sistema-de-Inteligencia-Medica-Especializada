@@ -34,6 +34,7 @@
             position: sticky;
             top: 0;
             z-index: 100;
+            width: 100%;
         }
         
         .header-container {
@@ -101,6 +102,7 @@
             box-shadow: 0 8px 30px rgba(0,0,0,0.3);
             position: relative;
             overflow: hidden;
+            width: 100%;
         }
         
         .manifesto-box::before {
@@ -138,7 +140,8 @@
             display: flex;
             flex-direction: column;
             min-height: 500px;
-            height: calc(100vh - 400px); /* CORREGIDO: height en vez de max-height */
+            height: calc(100vh - 400px);
+            width: 100%; /* AÑADIDO: Asegurar ancho completo */
         }
         
         .messages-area {
@@ -149,6 +152,7 @@
             flex-direction: column;
             gap: 1.5rem;
             background: #f8f9fa;
+            width: 100%; /* AÑADIDO: Ancho completo */
         }
         
         .messages-area::-webkit-scrollbar {
@@ -172,6 +176,7 @@
             display: flex;
             gap: 1rem;
             animation: slideIn 0.3s ease;
+            width: 100%; /* AÑADIDO: Ancho completo */
         }
         
         @keyframes slideIn {
@@ -193,6 +198,7 @@
             border-radius: 15px;
             word-wrap: break-word;
             line-height: 1.6;
+            width: auto; /* CAMBIADO: De fixed a auto */
         }
         
         .message.user .message-bubble {
@@ -207,6 +213,8 @@
             color: #333;
             border: 2px solid #e0e0e0;
             border-bottom-left-radius: 5px;
+            width: 100%; /* AÑADIDO: Ancho completo para bot */
+            max-width: 100%; /* AÑADIDO: Máximo ancho */
         }
         
         .message.bot .message-bubble strong {
@@ -219,6 +227,7 @@
             font-size: 1.5rem;
             border-bottom: 3px solid var(--uas-dorado);
             padding-bottom: 0.5rem;
+            width: 100%; /* AÑADIDO */
         }
         
         .message.bot .message-bubble h2 {
@@ -227,23 +236,27 @@
             font-size: 1.3rem;
             border-bottom: 2px solid var(--uas-dorado);
             padding-bottom: 0.5rem;
+            width: 100%; /* AÑADIDO */
         }
         
         .message.bot .message-bubble h3 {
             color: var(--uas-azul);
             margin: 1rem 0 0.5rem 0;
             font-size: 1.1rem;
+            width: 100%; /* AÑADIDO */
         }
         
         .message.bot .message-bubble h4 {
             color: var(--uas-azul);
             margin: 0.8rem 0 0.4rem 0;
             font-size: 1rem;
+            width: 100%; /* AÑADIDO */
         }
         
         .message.bot .message-bubble ul, 
         .message.bot .message-bubble ol {
             margin: 1rem 0 1rem 1.5rem;
+            width: 100%; /* AÑADIDO */
         }
         
         .message.bot .message-bubble li {
@@ -324,6 +337,7 @@
             border: none;
             border-top: 1px solid #e0e0e0;
             margin: 1.5rem 0;
+            width: 100%; /* AÑADIDO */
         }
         
         /* NUEVO: Indicador de streaming */
@@ -335,6 +349,7 @@
             font-size: 0.9rem;
             margin-top: 0.5rem;
             opacity: 0.8;
+            width: 100%; /* AÑADIDO */
         }
         
         .streaming-dots {
@@ -364,6 +379,7 @@
             background: white;
             display: flex;
             gap: 1rem;
+            width: 100%; /* AÑADIDO */
         }
         
         .input-field {
@@ -378,6 +394,7 @@
             min-height: 50px;
             max-height: 200px;
             overflow-y: auto;
+            width: 100%; /* AÑADIDO */
         }
         
         .input-field:focus {
@@ -408,6 +425,7 @@
             align-items: center;
             gap: 8px;
             align-self: flex-end;
+            white-space: nowrap; /* AÑADIDO: Evitar que se rompa */
         }
         
         .send-btn:hover {
@@ -446,6 +464,7 @@
             font-size: 0.85rem;
             font-weight: 600;
             margin-bottom: 0.8rem;
+            width: 100%; /* AÑADIDO */
         }
         
         .status-approved {
@@ -473,11 +492,13 @@
             padding: 2rem;
             text-align: center;
             margin-top: auto;
+            width: 100%; /* AÑADIDO */
         }
         
         .footer-content {
             max-width: var(--max-width);
             margin: 0 auto;
+            width: 100%; /* AÑADIDO */
         }
         
         .footer-credit {
@@ -531,10 +552,12 @@
             
             .main-container {
                 padding: 1rem;
+                width: 100%; /* AÑADIDO */
             }
             
             .manifesto-box {
                 padding: 1rem 1.5rem;
+                width: 100%; /* AÑADIDO */
             }
             
             .manifesto-box p {
@@ -542,21 +565,30 @@
             }
             
             .chat-container {
-                height: calc(100vh - 350px); /* Ajuste para móvil */
+                height: calc(100vh - 350px);
+                width: 100%; /* AÑADIDO */
             }
             
             .messages-area {
                 padding: 1rem;
+                width: 100%; /* AÑADIDO */
             }
             
             .message-bubble {
                 max-width: 92%;
                 padding: 1rem;
+                width: auto; /* AÑADIDO */
+            }
+            
+            .message.bot .message-bubble {
+                width: 100%; /* AÑADIDO */
+                max-width: 100%; /* AÑADIDO */
             }
             
             .input-area {
                 padding: 1rem;
                 flex-direction: column;
+                width: 100%; /* AÑADIDO */
             }
             
             .send-btn {
