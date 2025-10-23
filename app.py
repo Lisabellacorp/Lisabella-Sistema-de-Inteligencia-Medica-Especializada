@@ -112,29 +112,17 @@ def ask_stream():
                 }) + '\n'
                 
                 # 4. 🚀 STREAMING REAL: Tokens conforme llegan de Mistral
-                buffer = ""
                 chunk_index = 0
                 
                 for token in lisabella.mistral.generate_stream(question, domain, special_cmd):
-                    buffer += token
-                    
-                    # Enviar cada ~50 caracteres o al encontrar salto de línea
-                    if len(buffer) >= 50 or '\n' in buffer:
-                        yield json.dumps({
-                            "type": "chunk",
-                            "index": chunk_index,
-                            "content": buffer
-                        }) + '\n'
-                        chunk_index += 1
-                        buffer = ""
-                
-                # Enviar resto del buffer
-                if buffer:
+                    # 🆕 CORRECCIÓN: Enviar inmediatamente cada token sin acumular
+                    # Esto evita que se rompan palabras artificialmente
                     yield json.dumps({
                         "type": "chunk",
                         "index": chunk_index,
-                        "content": buffer
+                        "content": token  # 🆕 Cambio: enviar token directamente, no buffer
                     }) + '\n'
+                    chunk_index += 1
                 
                 # 5. Finalizar
                 yield json.dumps({"type": "done"}) + '\n'
