@@ -13,7 +13,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from src.main import Lisabella
 from src.wrapper import Result
 
-app = Flask(__name__)
+# ✅ Flask configurado para servir HTML desde templates/
+app = Flask(__name__, static_folder='templates', static_url_path='')
 
 # CORS: Restringir a frontend en producción
 CORS(app, resources={
@@ -196,19 +197,19 @@ def health():
 
 @app.route('/', methods=['GET'])
 def home():
-    """Redirigir a documentación"""
-    return jsonify({
-        "name": "Lisabella API",
-        "version": "1.0",
-        "status": "online",
-        "endpoints": {
-            "/ask": "POST - Consultar a Lisabella (legacy, sin streaming)",
-            "/ask_stream": "POST - Consultar con streaming (RECOMENDADO)",
-            "/health": "GET - Estado del servidor",
-            "/": "GET - Info del API"
-        },
-        "frontend": "https://lisabellacorp.github.io/lisabella/"
-    }), 200
+    """Servir el frontend HTML"""
+    try:
+        return app.send_static_file('lisabella.html')
+    except Exception as e:
+        return jsonify({
+            "error": "Frontend no encontrado",
+            "message": str(e),
+            "endpoints": {
+                "/ask": "POST - Consultar a Lisabella (legacy, sin streaming)",
+                "/ask_stream": "POST - Consultar con streaming (RECOMENDADO)",
+                "/health": "GET - Estado del servidor"
+            }
+        }), 404
 
 
 if __name__ == '__main__':
