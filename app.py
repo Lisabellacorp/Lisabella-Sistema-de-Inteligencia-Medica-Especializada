@@ -2,8 +2,6 @@ from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 import os
 import sys
-import signal
-import time
 import json
 from datetime import datetime
 
@@ -16,7 +14,7 @@ from src.wrapper import Result
 # ✅ Flask configurado para servir HTML desde templates/
 app = Flask(__name__, static_folder='templates', static_url_path='')
 
-# CORS: Restringir a frontend en producción
+# CORS abierto
 CORS(app, resources={
     r"/*": {
         "origins": ["*"],
@@ -34,28 +32,19 @@ except Exception as e:
     lisabella = None
 
 
-# Manejador de timeout
-def timeout_handler(signum, frame):
-    raise TimeoutError("Request excedió el tiempo máximo")
-
-
 @app.route('/ask', methods=['POST', 'OPTIONS'])
 def ask():
-    """Endpoint principal para consultas médicas (SIN STREAMING - legacy)"""
+    """Endpoint legacy (sin streaming) - mantener por compatibilidad"""
     if request.method == 'OPTIONS':
         return '', 204
     
     if not lisabella:
         return jsonify({
             "status": "error",
-            "response": "Sistema no inicializado correctamente"
+            "response": "Sistema no inicializado"
         }), 500
     
     try:
-        # Establecer timeout de 110s (menor que el de Gunicorn: 120s)
-        signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(110)
-        
         data = request.get_json()
         question = data.get('question', '')
         
@@ -65,38 +54,21 @@ def ask():
                 "response": "Pregunta vacía"
             }), 400
         
-        # Log de inicio para debug
-        start_time = time.time()
-        print(f"📥 [{datetime.now()}] Procesando pregunta: {question[:50]}...")
-        
-        # Procesar pregunta con Lisabella
+        print(f"📥 [{datetime.now()}] /ask: {question[:50]}...")
         result = lisabella.ask(question)
-        
-        # Log de éxito
-        print(f"✅ [{datetime.now()}] Respuesta generada en {time.time() - start_time:.2f}s")
         return jsonify(result)
-    
-    except TimeoutError:
-        print(f"⏰ [{datetime.now()}] Timeout en /ask para: {question[:50]}")
-        return jsonify({
-            "status": "error",
-            "response": "Consulta demasiado compleja. Simplifica la pregunta."
-        }), 408
     
     except Exception as e:
         print(f"❌ [{datetime.now()}] Error en /ask: {str(e)}")
         return jsonify({
             "status": "error",
-            "response": f"Error del servidor: {str(e)}"
+            "response": f"Error: {str(e)}"
         }), 500
-    
-    finally:
-        signal.alarm(0)  # Desactivar timeout
 
 
 @app.route('/ask_stream', methods=['POST', 'OPTIONS'])
 def ask_stream():
-    """Endpoint CON STREAMING - versión funcional"""
+    """🚀 Endpoint CON STREAMING REAL (tokens en tiempo real)"""
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -116,54 +88,63 @@ def ask_stream():
         print(f"📥 STREAM [{datetime.now()}] Procesando: {question[:50]}...")
         
         def generate():
-            """Generator que simula streaming dividiendo la respuesta"""
+            """Generator con streaming REAL de Mistral"""
             try:
                 # 1. Clasificar pregunta (rápido, <1s)
                 classification = lisabella.wrapper.classify(question)
                 result = classification["result"]
                 
-                # 2. Si rechazada/reformular → enviar completo (es corto)
+                # 2. Si rechazada/reformular → enviar completo
                 if result in [Result.REJECTED, Result.REFORMULATE]:
                     response_obj = lisabella.ask(question)
                     yield json.dumps({"type": "complete", "data": response_obj}) + '\n'
                     return
                 
-                # 3. Aprobada → enviar metadata inicial
+                # 3. Aprobada → enviar metadata
                 domain = classification.get("domain", "medicina general")
+                special_cmd = classification.get("special_command")
                 
                 yield json.dumps({
                     "type": "init",
                     "domain": domain,
+                    "special_command": special_cmd,
                     "status": "approved"
                 }) + '\n'
                 
-                # 4. Generar respuesta COMPLETA
-                response_obj = lisabella.ask(question)
-                full_response = response_obj.get("response", "")
+                # 4. 🚀 STREAMING REAL: Tokens conforme llegan de Mistral
+                buffer = ""
+                chunk_index = 0
                 
-                # 5. Dividir respuesta en chunks (por párrafos o líneas)
-                lines = full_response.split('\n')
-                chunk_size = max(3, len(lines) // 8)  # ~8 chunks
-                
-                for i in range(0, len(lines), chunk_size):
-                    chunk = '\n'.join(lines[i:i+chunk_size])
-                    if chunk.strip():
+                for token in lisabella.mistral.generate_stream(question, domain, special_cmd):
+                    buffer += token
+                    
+                    # Enviar cada ~50 caracteres o al encontrar salto de línea
+                    if len(buffer) >= 50 or '\n' in buffer:
                         yield json.dumps({
                             "type": "chunk",
-                            "index": i // chunk_size,
-                            "content": chunk + '\n'
+                            "index": chunk_index,
+                            "content": buffer
                         }) + '\n'
-                        time.sleep(0.1)  # Pausa para simular streaming
+                        chunk_index += 1
+                        buffer = ""
                 
-                # 6. Finalizar
+                # Enviar resto del buffer
+                if buffer:
+                    yield json.dumps({
+                        "type": "chunk",
+                        "index": chunk_index,
+                        "content": buffer
+                    }) + '\n'
+                
+                # 5. Finalizar
                 yield json.dumps({"type": "done"}) + '\n'
-                print(f"✅ STREAM [{datetime.now()}] Completado correctamente")
+                print(f"✅ STREAM [{datetime.now()}] Completado")
                 
             except Exception as e:
                 print(f"❌ Error en stream: {str(e)}")
                 yield json.dumps({
                     "type": "error",
-                    "message": f"Error al generar respuesta: {str(e)}"
+                    "message": f"Error: {str(e)}"
                 }) + '\n'
         
         return Response(
@@ -179,25 +160,25 @@ def ask_stream():
         print(f"❌ [{datetime.now()}] Error crítico en /ask_stream: {str(e)}")
         return jsonify({
             "status": "error",
-            "response": f"Error del servidor: {str(e)}"
+            "response": f"Error: {str(e)}"
         }), 500
 
 
 @app.route('/health', methods=['GET'])
 def health():
-    """Health check para Render"""
+    """Health check"""
     status = "ok" if lisabella else "error"
     return jsonify({
         "status": status,
-        "message": "Lisabella está funcionando" if lisabella else "Sistema no inicializado",
-        "version": "1.0",
+        "message": "Lisabella funcionando" if lisabella else "Sistema no inicializado",
+        "version": "1.0-streaming",
         "timestamp": str(datetime.now())
     }), 200 if lisabella else 500
 
 
 @app.route('/', methods=['GET'])
 def home():
-    """Servir el frontend HTML"""
+    """Servir HTML"""
     try:
         return app.send_static_file('lisabella.html')
     except Exception as e:
@@ -205,9 +186,9 @@ def home():
             "error": "Frontend no encontrado",
             "message": str(e),
             "endpoints": {
-                "/ask": "POST - Consultar a Lisabella (legacy, sin streaming)",
-                "/ask_stream": "POST - Consultar con streaming (RECOMENDADO)",
-                "/health": "GET - Estado del servidor"
+                "/ask": "POST - Consultar (legacy)",
+                "/ask_stream": "POST - Consultar con streaming REAL",
+                "/health": "GET - Estado"
             }
         }), 404
 
