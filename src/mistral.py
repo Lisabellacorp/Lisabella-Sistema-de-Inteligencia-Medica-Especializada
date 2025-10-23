@@ -1,9 +1,33 @@
+import os
 import time
-from mistralai import Mistral
-from src.config import MISTRAL_KEY, MISTRAL_MODEL, MISTRAL_TEMP
+import json
+
+# ✅ IMPORTACIÓN SEGURA PARA RENDER
+try:
+    from mistralai import Mistral
+    MISTRAL_AVAILABLE = True
+except ImportError:
+    MISTRAL_AVAILABLE = False
+    print("❌ Mistral AI no disponible")
+
+# ✅ CONFIGURACIÓN SEGURA
+try:
+    # Primero intenta desde config
+    from src.config import MISTRAL_KEY, MISTRAL_MODEL, MISTRAL_TEMP
+except ImportError:
+    # Fallback para Render
+    MISTRAL_KEY = os.environ.get("MISTRAL_API_KEY")
+    MISTRAL_MODEL = os.environ.get("MISTRAL_MODEL", "mistral-large-latest")
+    MISTRAL_TEMP = float(os.environ.get("MISTRAL_TEMP", "0.3"))
 
 class MistralClient:
     def __init__(self):
+        if not MISTRAL_AVAILABLE:
+            raise Exception("Mistral AI library no está instalada")
+        
+        if not MISTRAL_KEY:
+            raise Exception("MISTRAL_API_KEY no configurada")
+        
         self.client = Mistral(api_key=MISTRAL_KEY)
         self.model = MISTRAL_MODEL
         self.temp = MISTRAL_TEMP
@@ -201,14 +225,12 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
 **TU FUNCIÓN:** Crear una plantilla estructurada de nota médica en formato SOAP.
 
 **ESTRUCTURA OBLIGATORIA:**
-
-```
 NOTA MÉDICA
 
 ═══════════════════════════════════════════════════════════
 DATOS DEL DOCUMENTO
 ═══════════════════════════════════════════════════════════
-Fecha: [DD/MM/AAAA]     Hora: [HH:MM]
+Fecha: [DD/MM/AAAA] Hora: [HH:MM]
 Servicio/Consultorio: [COMPLETAR]
 Médico: [NOMBRE COMPLETO]
 Cédula Profesional: [NÚMERO]
@@ -217,7 +239,7 @@ Cédula Profesional: [NÚMERO]
 DATOS DEL PACIENTE
 ═══════════════════════════════════════════════════════════
 Nombre: [COMPLETAR]
-Edad: [AÑOS]    Sexo: [M/F]
+Edad: [AÑOS] Sexo: [M/F]
 Expediente: [NÚMERO]
 
 ═══════════════════════════════════════════════════════════
@@ -244,12 +266,12 @@ O - OBJETIVO
 ═══════════════════════════════════════════════════════════
 
 SIGNOS VITALES:
-• TA: [___/___] mmHg
-• FC: [___] lpm
-• FR: [___] rpm
-• Temperatura: [___] °C
-• SatO₂: [___] %
-• Peso: [___] kg    Talla: [___] cm    IMC: [___]
+• TA: [/] mmHg
+• FC: [] lpm
+• FR: [] rpm
+• Temperatura: [] °C
+• SatO₂: [] %
+• Peso: [] kg Talla: [] cm IMC: [___]
 
 EXPLORACIÓN FÍSICA:
 Habitus exterior: [COMPLETAR]
@@ -267,8 +289,10 @@ A - ANÁLISIS
 ═══════════════════════════════════════════════════════════
 
 IMPRESIÓN DIAGNÓSTICA:
-1. [DIAGNÓSTICO PRINCIPAL - CIE10 si aplica]
-2. [DIAGNÓSTICO SECUNDARIO]
+
+[DIAGNÓSTICO PRINCIPAL - CIE10 si aplica]
+
+[DIAGNÓSTICO SECUNDARIO]
 
 JUSTIFICACIÓN:
 [CORRELACIÓN CLÍNICA]
@@ -285,8 +309,10 @@ ESTUDIOS SOLICITADOS:
 □ [LABORATORIO/GABINETE]
 
 TRATAMIENTO FARMACOLÓGICO:
-1. [FÁRMACO] [DOSIS] [VÍA] [FRECUENCIA] por [DURACIÓN]
-2. [FÁRMACO] [DOSIS] [VÍA] [FRECUENCIA] por [DURACIÓN]
+
+[FÁRMACO] [DOSIS] [VÍA] [FRECUENCIA] por [DURACIÓN]
+
+[FÁRMACO] [DOSIS] [VÍA] [FRECUENCIA] por [DURACIÓN]
 
 MEDIDAS NO FARMACOLÓGICAS:
 • [COMPLETAR]
@@ -299,9 +325,10 @@ Cita de control: [FECHA]
 Signos de alarma: [COMPLETAR]
 
 ═══════════════════════════════════════════════════════════
-                    _______________________
-                    Firma y Sello del Médico
-```
+_______________________
+Firma y Sello del Médico
+
+text
 
 **USA ESTA PLANTILLA** y completa con los datos proporcionados. Si falta información, deja [COMPLETAR]."""
 
