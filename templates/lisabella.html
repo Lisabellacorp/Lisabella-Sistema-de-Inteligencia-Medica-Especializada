@@ -34,7 +34,6 @@
             position: sticky;
             top: 0;
             z-index: 100;
-            width: 100%;
         }
         
         .header-container {
@@ -102,7 +101,6 @@
             box-shadow: 0 8px 30px rgba(0,0,0,0.3);
             position: relative;
             overflow: hidden;
-            width: 100%;
         }
         
         .manifesto-box::before {
@@ -140,8 +138,7 @@
             display: flex;
             flex-direction: column;
             min-height: 500px;
-            height: calc(100vh - 400px);
-            width: 100%; /* AÑADIDO: Asegurar ancho completo */
+            max-height: calc(100vh - 400px);
         }
         
         .messages-area {
@@ -152,7 +149,6 @@
             flex-direction: column;
             gap: 1.5rem;
             background: #f8f9fa;
-            width: 100%; /* AÑADIDO: Ancho completo */
         }
         
         .messages-area::-webkit-scrollbar {
@@ -176,7 +172,7 @@
             display: flex;
             gap: 1rem;
             animation: slideIn 0.3s ease;
-            width: 100%; /* AÑADIDO: Ancho completo */
+            width: 100%;
         }
         
         @keyframes slideIn {
@@ -193,12 +189,11 @@
         }
         
         .message-bubble {
-            max-width: 85%;
             padding: 1.2rem 1.5rem;
             border-radius: 15px;
             word-wrap: break-word;
+            word-break: break-word;
             line-height: 1.6;
-            width: auto; /* CAMBIADO: De fixed a auto */
         }
         
         .message.user .message-bubble {
@@ -206,6 +201,8 @@
             color: white;
             border-bottom-right-radius: 5px;
             white-space: pre-wrap;
+            max-width: 85%;
+            margin-left: auto;
         }
         
         .message.bot .message-bubble {
@@ -213,8 +210,8 @@
             color: #333;
             border: 2px solid #e0e0e0;
             border-bottom-left-radius: 5px;
-            width: 100%; /* AÑADIDO: Ancho completo para bot */
-            max-width: 100%; /* AÑADIDO: Máximo ancho */
+            width: 100%;
+            max-width: 100%;
         }
         
         .message.bot .message-bubble strong {
@@ -227,7 +224,6 @@
             font-size: 1.5rem;
             border-bottom: 3px solid var(--uas-dorado);
             padding-bottom: 0.5rem;
-            width: 100%; /* AÑADIDO */
         }
         
         .message.bot .message-bubble h2 {
@@ -236,27 +232,23 @@
             font-size: 1.3rem;
             border-bottom: 2px solid var(--uas-dorado);
             padding-bottom: 0.5rem;
-            width: 100%; /* AÑADIDO */
         }
         
         .message.bot .message-bubble h3 {
             color: var(--uas-azul);
             margin: 1rem 0 0.5rem 0;
             font-size: 1.1rem;
-            width: 100%; /* AÑADIDO */
         }
         
         .message.bot .message-bubble h4 {
             color: var(--uas-azul);
             margin: 0.8rem 0 0.4rem 0;
             font-size: 1rem;
-            width: 100%; /* AÑADIDO */
         }
         
         .message.bot .message-bubble ul, 
         .message.bot .message-bubble ol {
             margin: 1rem 0 1rem 1.5rem;
-            width: 100%; /* AÑADIDO */
         }
         
         .message.bot .message-bubble li {
@@ -337,10 +329,8 @@
             border: none;
             border-top: 1px solid #e0e0e0;
             margin: 1.5rem 0;
-            width: 100%; /* AÑADIDO */
         }
         
-        /* NUEVO: Indicador de streaming */
         .streaming-indicator {
             display: inline-flex;
             align-items: center;
@@ -349,7 +339,6 @@
             font-size: 0.9rem;
             margin-top: 0.5rem;
             opacity: 0.8;
-            width: 100%; /* AÑADIDO */
         }
         
         .streaming-dots {
@@ -379,7 +368,6 @@
             background: white;
             display: flex;
             gap: 1rem;
-            width: 100%; /* AÑADIDO */
         }
         
         .input-field {
@@ -394,7 +382,6 @@
             min-height: 50px;
             max-height: 200px;
             overflow-y: auto;
-            width: 100%; /* AÑADIDO */
         }
         
         .input-field:focus {
@@ -425,7 +412,6 @@
             align-items: center;
             gap: 8px;
             align-self: flex-end;
-            white-space: nowrap; /* AÑADIDO: Evitar que se rompa */
         }
         
         .send-btn:hover {
@@ -464,7 +450,6 @@
             font-size: 0.85rem;
             font-weight: 600;
             margin-bottom: 0.8rem;
-            width: 100%; /* AÑADIDO */
         }
         
         .status-approved {
@@ -492,13 +477,11 @@
             padding: 2rem;
             text-align: center;
             margin-top: auto;
-            width: 100%; /* AÑADIDO */
         }
         
         .footer-content {
             max-width: var(--max-width);
             margin: 0 auto;
-            width: 100%; /* AÑADIDO */
         }
         
         .footer-credit {
@@ -552,12 +535,10 @@
             
             .main-container {
                 padding: 1rem;
-                width: 100%; /* AÑADIDO */
             }
             
             .manifesto-box {
                 padding: 1rem 1.5rem;
-                width: 100%; /* AÑADIDO */
             }
             
             .manifesto-box p {
@@ -565,30 +546,24 @@
             }
             
             .chat-container {
-                height: calc(100vh - 350px);
-                width: 100%; /* AÑADIDO */
+                max-height: calc(100vh - 350px);
             }
             
             .messages-area {
                 padding: 1rem;
-                width: 100%; /* AÑADIDO */
             }
             
             .message-bubble {
-                max-width: 92%;
                 padding: 1rem;
-                width: auto; /* AÑADIDO */
             }
             
-            .message.bot .message-bubble {
-                width: 100%; /* AÑADIDO */
-                max-width: 100%; /* AÑADIDO */
+            .message.user .message-bubble {
+                max-width: 92%;
             }
             
             .input-area {
                 padding: 1rem;
                 flex-direction: column;
-                width: 100%; /* AÑADIDO */
             }
             
             .send-btn {
@@ -688,16 +663,13 @@
         const sendBtn = document.getElementById('sendBtn');
         const btnText = document.getElementById('btnText');
 
-        // CONFIGURACIÓN: Cambia esta URL por tu backend de Render
-        const BACKEND_URL = 'https://lisabella.onrender.com'; // ⚠️ IMPORTANTE: Cambia esto
+        const BACKEND_URL = 'https://lisabella.onrender.com';
 
-        // Auto-resize textarea
         questionInput.addEventListener('input', function() {
             this.style.height = 'auto';
             this.style.height = Math.min(this.scrollHeight, 200) + 'px';
         });
 
-        // Enter para enviar, Shift+Enter para nueva línea
         questionInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -716,12 +688,9 @@
             btnText.innerHTML = '<span class="loading-spinner"></span>';
 
             try {
-                // INTENTAR CON STREAMING PRIMERO
                 await callBackendStream(question);
             } catch (error) {
                 console.error('Error en streaming:', error);
-                
-                // FALLBACK: Si falla streaming, intentar endpoint legacy
                 try {
                     const response = await callBackendLegacy(question);
                     handleLegacyResponse(response);
@@ -745,9 +714,7 @@
         async function callBackendStream(question) {
             const response = await fetch(`${BACKEND_URL}/ask_stream`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ question: question })
             });
 
@@ -763,12 +730,11 @@
 
             while (true) {
                 const { done, value } = await reader.read();
-                
                 if (done) break;
                 
                 buffer += decoder.decode(value, { stream: true });
                 const lines = buffer.split('\n');
-                buffer = lines.pop(); // Guardar línea incompleta
+                buffer = lines.pop();
                 
                 for (const line of lines) {
                     if (!line.trim()) continue;
@@ -777,32 +743,24 @@
                         const data = JSON.parse(line);
                         
                         if (data.type === 'complete') {
-                            // Respuesta rechazada/reformular (completa de una vez)
                             handleLegacyResponse(data.data);
                             return;
                         }
-                        
                         else if (data.type === 'init') {
-                            // Iniciar respuesta aprobada
                             currentBubble = createStreamingBubble();
                             fullContent = `<span class="status-badge status-approved">✅ Respuesta Procesada</span><br>`;
                         }
-                        
                         else if (data.type === 'chunk') {
-                            // Agregar chunk progresivamente
                             if (currentBubble) {
-                                fullContent += formatMarkdown(data.content);
-                                updateStreamingBubble(currentBubble, fullContent);
+                                fullContent += data.content;
+                                updateStreamingBubble(currentBubble, formatMarkdown(fullContent));
                             }
                         }
-                        
                         else if (data.type === 'done') {
-                            // Finalizar streaming
                             if (currentBubble) {
                                 finalizeStreamingBubble(currentBubble);
                             }
                         }
-                        
                         else if (data.type === 'error') {
                             throw new Error(data.message);
                         }
@@ -816,74 +774,42 @@
         async function callBackendLegacy(question) {
             const response = await fetch(`${BACKEND_URL}/ask`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ question: question })
             });
-
-            if (!response.ok) {
-                throw new Error('Error conectando con el servidor');
-            }
-
+            if (!response.ok) throw new Error('Error conectando con el servidor');
             return await response.json();
         }
 
         function handleLegacyResponse(response) {
             if (response.status === 'rejected') {
-                addMessage('bot', `
-                    <span class="status-badge status-rejected">❌ Pregunta Rechazada</span><br>
-                    ${response.response || ''}
-                `);
+                addMessage('bot', `<span class="status-badge status-rejected">❌ Pregunta Rechazada</span><br>${response.response || ''}`);
             } else if (response.status === 'reformulate') {
-                addMessage('bot', `
-                    <span class="status-badge status-reformulate">💡 Reformulación Sugerida</span><br>
-                    ${response.response || ''}
-                `);
+                addMessage('bot', `<span class="status-badge status-reformulate">💡 Reformulación Sugerida</span><br>${response.response || ''}`);
             } else {
-                const responseHtml = formatMarkdown(response.response);
-                addMessage('bot', `
-                    <span class="status-badge status-approved">✅ Respuesta Procesada</span><br>
-                    ${responseHtml}
-                `);
+                addMessage('bot', `<span class="status-badge status-approved">✅ Respuesta Procesada</span><br>${formatMarkdown(response.response)}`);
             }
         }
 
         function createStreamingBubble() {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message bot';
-            
             const bubble = document.createElement('div');
             bubble.className = 'message-bubble';
-            
             const indicator = document.createElement('div');
             indicator.className = 'streaming-indicator';
-            indicator.innerHTML = `
-                <span>Generando respuesta</span>
-                <div class="streaming-dots">
-                    <span></span><span></span><span></span>
-                </div>
-            `;
-            
+            indicator.innerHTML = `<span>Generando respuesta</span><div class="streaming-dots"><span></span><span></span><span></span></div>`;
             bubble.appendChild(indicator);
             messageDiv.appendChild(bubble);
             messagesArea.appendChild(messageDiv);
-            
-            // Scroll suave al nuevo mensaje
-            setTimeout(() => {
-                messageDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 100);
-            
+            setTimeout(() => messageDiv.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
             return bubble;
         }
 
         function updateStreamingBubble(bubble, content) {
-            // Actualizar contenido manteniendo el indicador
             const indicator = bubble.querySelector('.streaming-indicator');
             bubble.innerHTML = content;
             bubble.appendChild(indicator);
-            
-            // Envolver tablas en contenedor con scroll
             const tables = bubble.querySelectorAll('table');
             tables.forEach(table => {
                 if (!table.parentElement.classList.contains('table-wrapper')) {
@@ -896,11 +822,8 @@
         }
 
         function finalizeStreamingBubble(bubble) {
-            // Remover indicador de streaming
             const indicator = bubble.querySelector('.streaming-indicator');
-            if (indicator) {
-                indicator.remove();
-            }
+            if (indicator) indicator.remove();
         }
 
         function formatMarkdown(text) {
@@ -910,8 +833,40 @@
             let result = '';
             let inList = false;
             let listType = '';
+            let inTable = false;
+            let tableRows = [];
             
-            for (let line of lines) {
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i];
+                
+                // Detectar inicio de tabla
+                if (line.includes('|') && !inTable) {
+                    // Verificar si la siguiente línea es separador de tabla
+                    if (i + 1 < lines.length && lines[i + 1].match(/^\|[\s:-]+\|/)) {
+                        inTable = true;
+                        tableRows = [];
+                        if (inList) { result += `</${listType}>`; inList = false; }
+                    }
+                }
+                
+                // Procesar tabla
+                if (inTable) {
+                    if (line.includes('|')) {
+                        tableRows.push(line);
+                    } else {
+                        // Fin de tabla
+                        if (tableRows.length > 0) {
+                            result += buildTable(tableRows);
+                            tableRows = [];
+                        }
+                        inTable = false;
+                        // Procesar la línea actual normalmente
+                        i--;
+                        continue;
+                    }
+                    continue;
+                }
+                
                 // Headers
                 if (line.match(/^#### /)) {
                     if (inList) { result += `</${listType}>`; inList = false; }
@@ -927,14 +882,14 @@
                     result += '<h1>' + line.replace(/^# /, '') + '</h1>';
                 }
                 // Listas no ordenadas
-                else if (line.match(/^[\-\•] /)) {
+                else if (line.match(/^[\-\•\*] /)) {
                     if (!inList || listType !== 'ul') {
                         if (inList) result += `</${listType}>`;
                         result += '<ul>';
                         inList = true;
                         listType = 'ul';
                     }
-                    result += '<li>' + line.replace(/^[\-\•] /, '') + '</li>';
+                    result += '<li>' + line.replace(/^[\-\•\*] /, '') + '</li>';
                 }
                 // Listas ordenadas
                 else if (line.match(/^\d+\. /)) {
@@ -961,44 +916,78 @@
                 }
             }
             
+            // Cerrar tabla si quedó abierta
+            if (inTable && tableRows.length > 0) {
+                result += buildTable(tableRows);
+            }
+            
             if (inList) result += `</${listType}>`;
             
             // Formato inline
             result = result
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/`(.*?)`/g, '<code>$1</code>');
+                .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/`(.+?)`/g, '<code>$1</code>');
             
             return result;
+        }
+
+        function buildTable(rows) {
+            if (rows.length < 2) return '';
+            
+            let html = '<div class="table-wrapper"><table>';
+            let isHeader = true;
+            
+            for (let i = 0; i < rows.length; i++) {
+                let row = rows[i];
+                
+                // Saltar línea separadora
+                if (row.match(/^\|[\s:-]+\|/)) {
+                    isHeader = false;
+                    continue;
+                }
+                
+                let cells = row.split('|').filter(cell => cell.trim());
+                if (cells.length === 0) continue;
+                
+                html += '<tr>';
+                cells.forEach(cell => {
+                    let tag = isHeader ? 'th' : 'td';
+                    html += `<${tag}>${cell.trim()}</${tag}>`;
+                });
+                html += '</tr>';
+                
+                if (isHeader) isHeader = false;
+            }
+            
+            html += '</table></div>';
+            return html;
         }
 
         function addMessage(sender, content) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
-            
             const bubble = document.createElement('div');
             bubble.className = 'message-bubble';
             bubble.innerHTML = content;
             
-            // Envolver tablas en contenedor con scroll
             const tables = bubble.querySelectorAll('table');
             tables.forEach(table => {
-                const wrapper = document.createElement('div');
-                wrapper.className = 'table-wrapper';
-                table.parentNode.insertBefore(wrapper, table);
-                wrapper.appendChild(table);
+                if (!table.parentElement.classList.contains('table-wrapper')) {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'table-wrapper';
+                    table.parentNode.insertBefore(wrapper, table);
+                    wrapper.appendChild(table);
+                }
             });
             
             messageDiv.appendChild(bubble);
             messagesArea.appendChild(messageDiv);
             
-            // Si es respuesta del bot, hacer scroll al inicio de la respuesta
             if (sender === 'bot') {
-                setTimeout(() => {
-                    messageDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 100);
+                setTimeout(() => messageDiv.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
             } else {
-                // Si es pregunta del usuario, scroll al final normal
                 messagesArea.scrollTop = messagesArea.scrollHeight;
             }
         }
