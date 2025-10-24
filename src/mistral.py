@@ -35,66 +35,16 @@ class MistralClient:
         self.base_retry_delay = 2
         self.api_timeout = 60
 
-    def _clean_text_formatting(self, text):
-        """
-        🆕 CORRECCIÓN: Limpia el texto eliminando saltos de línea incorrectos
-        que rompen palabras y mejoran el formato general.
-        """
-        if not text:
-            return text
-        
-        # 1. Unir palabras divididas por saltos de línea
-        # Ejemplo: "embr\nionario" → "embrionario"
-        text = re.sub(r'([a-zA-Záéíóúñ])\s*\n\s*([a-zA-Záéíóúñ])', r'\1\2', text)
-        
-        # 2. Unir líneas muy cortas que probablemente son parte del mismo párrafo
-        lines = text.split('\n')
-        cleaned_lines = []
-        current_paragraph = ""
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                if current_paragraph:
-                    cleaned_lines.append(current_paragraph)
-                    current_paragraph = ""
-                cleaned_lines.append("")  # Mantener separación de párrafos
-            elif len(line) < 60 and not line.endswith(('.', ':', ';', '!', '?')):
-                # Línea corta, probablemente continuación
-                if current_paragraph:
-                    current_paragraph += " " + line
-                else:
-                    current_paragraph = line
-            else:
-                # Línea completa, empezar nuevo párrafo
-                if current_paragraph:
-                    cleaned_lines.append(current_paragraph)
-                current_paragraph = line
-        
-        if current_paragraph:
-            cleaned_lines.append(current_paragraph)
-        
-        # 3. Reconstruir el texto con formato mejorado
-        cleaned_text = '\n'.join(cleaned_lines)
-        
-        # 4. Limpiar espacios múltiples
-        cleaned_text = re.sub(r' +', ' ', cleaned_text)
-        
-        # 5. Limpiar saltos de línea múltiples (máximo 2 seguidos)
-        cleaned_text = re.sub(r'\n{3,}', '\n\n', cleaned_text)
-        
-        return cleaned_text.strip()
-
     def generate_stream(self, question, domain, special_command=None):
         """
-        🚀 NUEVO: Genera respuesta con STREAMING REAL de Mistral.
-        Envía tokens conforme se generan (sin esperar respuesta completa).
+        🚀 Genera respuesta con STREAMING REAL de Mistral.
+        Max tokens aumentado a 8000 para respuestas largas completas.
         """
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
         
         try:
-            # ✅ STREAMING NATIVO DE MISTRAL
+            # ✅ STREAMING NATIVO DE MISTRAL CON 8000 TOKENS
             stream = self.client.chat.stream(
                 model=self.model,
                 messages=[
@@ -102,27 +52,20 @@ class MistralClient:
                     {"role": "user", "content": user_msg}
                 ],
                 temperature=self.temp,
-                max_tokens=4000
+                max_tokens=8000  # ← AUMENTADO DE 4000 A 8000
             )
             
             # Generator que envía cada chunk conforme llega
-            full_response = ""
             for chunk in stream:
                 if chunk.data.choices:
                     delta = chunk.data.choices[0].delta.content
                     if delta:
-                        full_response += delta
-                        # Enviar chunk limpio
                         yield delta
+            
+            # ✅ CRÍTICO: Señal de finalización (sin texto visible)
+            # El app.py detectará esto y quitará el indicador
+            yield "__STREAM_DONE__"
                         
-            # 🆕 CORRECCIÓN: Limpiar el texto completo al final también
-            # (para casos donde el streaming termina)
-            if full_response:
-                cleaned_final = self._clean_text_formatting(full_response)
-                if cleaned_final != full_response:
-                    # Si hubo cambios, enviar versión corregida
-                    yield "\n\n[Formato corregido automáticamente]"
-                    
         except Exception as e:
             error_str = str(e).lower()
             
@@ -134,7 +77,7 @@ class MistralClient:
                 yield f"\n\n⚠️ **Error del sistema**\n\n{str(e)[:200]}"
 
     def generate(self, question, domain, special_command=None):
-        """Generar respuesta COMPLETA con retry automático (método original - LEGACY)"""
+        """Generar respuesta COMPLETA con retry automático (método LEGACY - 8000 tokens)"""
 
         for attempt in range(self.max_retries):
             try:
@@ -145,13 +88,10 @@ class MistralClient:
                         question,
                         domain,
                         special_command,
-                        max_tokens=4000
+                        max_tokens=8000  # ← AUMENTADO DE 4000 A 8000
                     )
                     result = future.result(timeout=self.api_timeout)
-                
-                # 🆕 CORRECCIÓN: Aplicar limpieza de formato al resultado
-                cleaned_result = self._clean_text_formatting(result)
-                return cleaned_result
+                return result
 
             except TimeoutError:
                 print(f"⏳ Timeout en intento {attempt + 1}/{self.max_retries}")
@@ -201,7 +141,7 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
 
         return self._generate_rate_limit_message()
 
-    def _call_mistral_api(self, question, domain, special_command, max_tokens=4000):
+    def _call_mistral_api(self, question, domain, special_command, max_tokens=8000):
         """Llamada real a la API de Mistral (método original COMPLETO)"""
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
@@ -228,6 +168,7 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
 - Joint Commission International (JCI)
 - Clínica Mayo
 - COFEPRIS (Norma Oficial Mexicana NOM-004-SSA3-2012)
+- UpToDate Clinical Guidelines
 
 **EVALÚA LA NOTA MÉDICA EN:**
 
@@ -291,12 +232,14 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
 - Clínica Mayo: [%]
 
 ## 💡 Recomendaciones
-[Prioritarias y opcionales]"""
+[Prioritarias y opcionales]
+
+**NO agregues mensajes sobre formato corregido al final.**"""
 
         elif special_command == "correccion_nota":
             return """Eres un corrector especializado de notas médicas.
 
-**TU FUNCIÓN:** Identificar y corregir errores en notas médicas.
+**TU FUNCIÓN:** Identificar y corregir errores en notas médicas según estándares JCI, Clínica Mayo y COFEPRIS.
 
 **DETECTA Y CORRIGE:**
 
@@ -332,10 +275,11 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
 ## 💡 Sugerencias Adicionales
 [Mejoras opcionales para mayor calidad]
 
-**IMPORTANTE:** NO inventes datos. Si falta información, marca como [DATO FALTANTE]."""
+**IMPORTANTE:** NO inventes datos. Si falta información, marca como [DATO FALTANTE].
+**NO agregues mensajes sobre formato corregido al final.**"""
 
         elif special_command == "elaboracion_nota":
-            return """Eres un generador de plantillas de notas médicas.
+            return """Eres un generador de plantillas de notas médicas según estándares JCI, Clínica Mayo y COFEPRIS.
 
 **TU FUNCIÓN:** Crear una plantilla estructurada de nota médica en formato SOAP.
 
@@ -435,10 +379,11 @@ Signos de alarma: [COMPLETAR]
 _______________________
 Firma y Sello del Médico
 
-**USA ESTA PLANTILLA** y completa con los datos proporcionados. Si falta información, deja [COMPLETAR]."""
+**USA ESTA PLANTILLA** y completa con los datos proporcionados. Si falta información, deja [COMPLETAR].
+**NO agregues mensajes sobre formato corregido al final.**"""
 
         elif special_command == "valoracion":
-            return """Eres un médico consultor especializado en apoyo diagnóstico.
+            return """Eres un médico consultor especializado en apoyo diagnóstico según estándares de Clínica Mayo y UpToDate.
 
 **TU FUNCIÓN:** Proporcionar orientación diagnóstica y terapéutica basada en el caso clínico presentado.
 
@@ -491,7 +436,9 @@ Firma y Sello del Médico
 [Lista de criterios de derivación]
 
 ## 📚 Fuentes
-[Referencias]"""
+[Referencias]
+
+**NO agregues mensajes sobre formato corregido al final.**"""
 
         elif special_command == "study_mode":
             base_prompt = self._get_base_prompt(domain)
@@ -508,7 +455,8 @@ Adapta tu respuesta para ENSEÑAR, no solo informar:
 - Destaca **errores comunes** que estudiantes cometen
 - Agrega **correlación clínica** siempre que sea posible
 
-**Objetivo:** Que el estudiante ENTIENDA profundamente, no solo memorice."""
+**Objetivo:** Que el estudiante ENTIENDA profundamente, no solo memorice.
+**NO agregues mensajes sobre formato corregido al final.**"""
 
         else:
             return self._get_base_prompt(domain)
@@ -547,6 +495,7 @@ Tu área de expertise actual es: **{domain}**
    - NO inventes fármacos, estructuras anatómicas ni procesos
    - NO des información sin fuentes verificables
    - NO respondas fuera de ciencias médicas
+   - NO agregues mensajes sobre "formato corregido automáticamente" al final
    - Si no tienes información verificada, di: "No cuento con información verificada sobre este tema específico"
 
 ## FUENTES VÁLIDAS:
@@ -556,9 +505,11 @@ Tu área de expertise actual es: **{domain}**
 - Robbins & Cotran: Pathologic Basis of Disease
 - Harrison's Principles of Internal Medicine
 - Goldman-Cecil Medicine
-- Guías clínicas: ESC, AHA, ACC, NICE, UpToDate, COFEPRIS
+- UpToDate (actualizado 2023-2024)
+- Guías clínicas: ESC, AHA, ACC, NICE, Clínica Mayo, COFEPRIS
 
-Responde con profundidad académica pero claridad expositiva."""
+Responde con profundidad académica pero claridad expositiva.
+**IMPORTANTE: NO agregues mensajes sobre formato al final de tu respuesta.**"""
 
     def _build_user_prompt(self, question, domain, special_command=None):
         """Construir user prompt según comando"""
@@ -572,7 +523,9 @@ Responde siguiendo ESTRICTAMENTE la estructura:
 ## Definición
 ## Detalles Clave
 ## Advertencias
-## Fuentes"""
+## Fuentes
+
+NO agregues mensajes sobre formato corregido al final."""
 
     def _generate_rate_limit_message(self):
         """Mensaje amigable para rate limit"""
@@ -585,4 +538,4 @@ Lo siento, he alcanzado el límite de consultas por minuto con el proveedor de i
 - Si el problema persiste, intenta con una pregunta más breve
 - Este es un límite técnico del servicio, no un error de Lisabella
 
-**Nota:** ESTAMOS TRABAJANDO PARA DARTE LO MEJOR AGRADECEMOS TU PACIENCIA."""
+**Nota:** Estamos trabajando para mejorar la capacidad del sistema."""
