@@ -68,7 +68,7 @@ def ask():
 
 @app.route('/ask_stream', methods=['POST', 'OPTIONS'])
 def ask_stream():
-    """🚀 Endpoint CON STREAMING REAL (tokens en tiempo real)"""
+    """🚀 Endpoint CON STREAMING REAL (8000 tokens)"""
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -88,7 +88,7 @@ def ask_stream():
         print(f"📥 STREAM [{datetime.now()}] Procesando: {question[:50]}...")
         
         def generate():
-            """Generator con streaming REAL de Mistral"""
+            """Generator con streaming REAL de Mistral (8000 tokens)"""
             try:
                 # 1. Clasificar pregunta (rápido, <1s)
                 classification = lisabella.wrapper.classify(question)
@@ -116,11 +116,26 @@ def ask_stream():
                 chunk_index = 0
                 
                 for token in lisabella.mistral.generate_stream(question, domain, special_cmd):
+                    # ✅ DETECTAR SEÑAL DE FINALIZACIÓN
+                    if token == "__STREAM_DONE__":
+                        # Enviar buffer final si hay algo
+                        if buffer:
+                            yield json.dumps({
+                                "type": "chunk",
+                                "index": chunk_index,
+                                "content": buffer
+                            }) + '\n'
+                        
+                        # Enviar señal de done al frontend
+                        yield json.dumps({"type": "done"}) + '\n'
+                        print(f"✅ STREAM [{datetime.now()}] Completado correctamente")
+                        return
+                    
                     buffer += token
                     
-                    # 🆕 CORRECCIÓN DEFINITIVA: Enviar en chunks que RESPETEN palabras
-                    # Enviar cuando tengamos un espacio, punto, o chunk razonable
-                    if len(buffer) >= 80 or token in [' ', '.', ',', ';', ':', '!', '?', '\n']:
+                    # Enviar chunks cuando tengamos contenido razonable
+                    # (espacios, puntos, o buffer >= 100 caracteres)
+                    if len(buffer) >= 100 or token in [' ', '.', ',', ';', ':', '!', '?', '\n']:
                         yield json.dumps({
                             "type": "chunk",
                             "index": chunk_index,
@@ -129,7 +144,7 @@ def ask_stream():
                         chunk_index += 1
                         buffer = ""
                 
-                # Enviar resto del buffer
+                # Fallback: Si termina sin señal de done, enviar buffer y done
                 if buffer:
                     yield json.dumps({
                         "type": "chunk",
@@ -137,9 +152,8 @@ def ask_stream():
                         "content": buffer
                     }) + '\n'
                 
-                # 5. Finalizar
                 yield json.dumps({"type": "done"}) + '\n'
-                print(f"✅ STREAM [{datetime.now()}] Completado")
+                print(f"✅ STREAM [{datetime.now()}] Completado (fallback)")
                 
             except Exception as e:
                 print(f"❌ Error en stream: {str(e)}")
@@ -172,7 +186,7 @@ def health():
     return jsonify({
         "status": status,
         "message": "Lisabella funcionando" if lisabella else "Sistema no inicializado",
-        "version": "1.0-streaming",
+        "version": "1.0-streaming-8k",
         "timestamp": str(datetime.now())
     }), 200 if lisabella else 500
 
@@ -188,7 +202,7 @@ def home():
             "message": str(e),
             "endpoints": {
                 "/ask": "POST - Consultar (legacy)",
-                "/ask_stream": "POST - Consultar con streaming REAL",
+                "/ask_stream": "POST - Consultar con streaming 8000 tokens",
                 "/health": "GET - Estado"
             }
         }), 404
