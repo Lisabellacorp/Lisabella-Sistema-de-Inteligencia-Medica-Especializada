@@ -33,18 +33,18 @@ class MistralClient:
         self.temp = MISTRAL_TEMP
         self.max_retries = 3
         self.base_retry_delay = 2
-        self.api_timeout = 60
+        self.api_timeout = 90  # ⬅️ AUMENTADO DE 60 A 90 SEGUNDOS
 
     def generate_stream(self, question, domain, special_command=None):
         """
         🚀 Genera respuesta con STREAMING REAL de Mistral.
-        Max tokens aumentado a 8000 para respuestas largas completas.
+        Max tokens aumentado a 16000 para respuestas largas completas.
         """
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
         
         try:
-            # ✅ STREAMING NATIVO DE MISTRAL CON 8000 TOKENS
+            # ✅ STREAMING NATIVO DE MISTRAL CON 16000 TOKENS
             stream = self.client.chat.stream(
                 model=self.model,
                 messages=[
@@ -52,18 +52,26 @@ class MistralClient:
                     {"role": "user", "content": user_msg}
                 ],
                 temperature=self.temp,
-                max_tokens=8000  # ← AUMENTADO DE 4000 A 8000
+                max_tokens=16000  # ⬅️ AUMENTADO DE 8000 A 16000
             )
             
             # Generator que envía cada chunk conforme llega
+            token_count = 0
+            warned = False
+            
             for chunk in stream:
                 if chunk.data.choices:
                     delta = chunk.data.choices[0].delta.content
                     if delta:
                         yield delta
+                        token_count += len(delta.split()) * 1.3  # Aproximación de tokens
+                        
+                        # ⚠️ Advertencia si se acerca al límite (87.5% = 14000 tokens)
+                        if token_count > 14000 and not warned:
+                            yield "\n\n💡 *Nota: Respuesta muy extensa. Si necesitas más detalles, consulta secciones específicas por separado.*"
+                            warned = True
             
             # ✅ CRÍTICO: Señal de finalización (sin texto visible)
-            # El app.py detectará esto y quitará el indicador
             yield "__STREAM_DONE__"
                         
         except Exception as e:
@@ -77,7 +85,7 @@ class MistralClient:
                 yield f"\n\n⚠️ **Error del sistema**\n\n{str(e)[:200]}"
 
     def generate(self, question, domain, special_command=None):
-        """Generar respuesta COMPLETA con retry automático (método LEGACY - 8000 tokens)"""
+        """Generar respuesta COMPLETA con retry automático (método LEGACY - 16000 tokens)"""
 
         for attempt in range(self.max_retries):
             try:
@@ -88,7 +96,7 @@ class MistralClient:
                         question,
                         domain,
                         special_command,
-                        max_tokens=8000  # ← AUMENTADO DE 4000 A 8000
+                        max_tokens=16000  # ⬅️ AUMENTADO DE 8000 A 16000
                     )
                     result = future.result(timeout=self.api_timeout)
                 return result
@@ -141,8 +149,8 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
 
         return self._generate_rate_limit_message()
 
-    def _call_mistral_api(self, question, domain, special_command, max_tokens=8000):
-        """Llamada real a la API de Mistral (método original COMPLETO)"""
+    def _call_mistral_api(self, question, domain, special_command, max_tokens=16000):
+        """Llamada real a la API de Mistral con 16000 tokens"""
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
 
@@ -153,7 +161,7 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
                 {"role": "user", "content": user_msg}
             ],
             temperature=self.temp,
-            max_tokens=max_tokens
+            max_tokens=max_tokens  # ⬅️ Ahora usa 16000 por default
         )
 
         return response.choices[0].message.content
