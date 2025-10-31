@@ -68,7 +68,7 @@ def ask():
 
 @app.route('/ask_stream', methods=['POST', 'OPTIONS'])
 def ask_stream():
-    """🚀 Endpoint CON STREAMING REAL (8000 tokens)"""
+    """🚀 Endpoint CON STREAMING REAL (16000 tokens)"""
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -88,7 +88,7 @@ def ask_stream():
         print(f"📥 STREAM [{datetime.now()}] Procesando: {question[:50]}...")
         
         def generate():
-            """Generator con streaming REAL de Mistral (8000 tokens)"""
+            """Generator con streaming REAL de Mistral (16000 tokens)"""
             try:
                 # 1. Clasificar pregunta (rápido, <1s)
                 classification = lisabella.wrapper.classify(question)
@@ -114,10 +114,11 @@ def ask_stream():
                 # 4. 🚀 STREAMING REAL: Tokens conforme llegan de Mistral
                 buffer = ""
                 chunk_index = 0
+                stream_done = False
                 
                 for token in lisabella.mistral.generate_stream(question, domain, special_cmd):
-                    # ✅ DETECTAR SEÑAL DE FINALIZACIÓN
-                    if token == "__STREAM_DONE__":
+                    # ✅ DETECTAR SEÑALES DE FINALIZACIÓN (tanto texto como constante)
+                    if token in ["__STREAM_DONE__", "[STREAM_COMPLETE]"]:
                         # Enviar buffer final si hay algo
                         if buffer:
                             yield json.dumps({
@@ -129,13 +130,14 @@ def ask_stream():
                         # Enviar señal de done al frontend
                         yield json.dumps({"type": "done"}) + '\n'
                         print(f"✅ STREAM [{datetime.now()}] Completado correctamente")
+                        stream_done = True
                         return
                     
                     buffer += token
                     
                     # Enviar chunks cuando tengamos contenido razonable
-                    # (espacios, puntos, o buffer >= 100 caracteres)
-                    if len(buffer) >= 100 or token in [' ', '.', ',', ';', ':', '!', '?', '\n']:
+                    # (≥150 caracteres O puntos/saltos de línea)
+                    if len(buffer) >= 150 or token in ['.', '!', '?', '\n\n']:
                         yield json.dumps({
                             "type": "chunk",
                             "index": chunk_index,
@@ -145,21 +147,22 @@ def ask_stream():
                         buffer = ""
                 
                 # Fallback: Si termina sin señal de done, enviar buffer y done
-                if buffer:
-                    yield json.dumps({
-                        "type": "chunk",
-                        "index": chunk_index,
-                        "content": buffer
-                    }) + '\n'
-                
-                yield json.dumps({"type": "done"}) + '\n'
-                print(f"✅ STREAM [{datetime.now()}] Completado (fallback)")
+                if not stream_done:
+                    if buffer:
+                        yield json.dumps({
+                            "type": "chunk",
+                            "index": chunk_index,
+                            "content": buffer
+                        }) + '\n'
+                    
+                    yield json.dumps({"type": "done"}) + '\n'
+                    print(f"⚠️ STREAM [{datetime.now()}] Completado sin señal explícita")
                 
             except Exception as e:
                 print(f"❌ Error en stream: {str(e)}")
                 yield json.dumps({
                     "type": "error",
-                    "message": f"Error: {str(e)}"
+                    "message": f"Error del sistema: {str(e)[:150]}"
                 }) + '\n'
         
         return Response(
@@ -186,7 +189,7 @@ def health():
     return jsonify({
         "status": status,
         "message": "Lisabella funcionando" if lisabella else "Sistema no inicializado",
-        "version": "1.0-streaming-8k",
+        "version": "1.0-streaming-16k",  # ✅ ACTUALIZADO de 8k a 16k
         "timestamp": str(datetime.now())
     }), 200 if lisabella else 500
 
@@ -202,7 +205,7 @@ def home():
             "message": str(e),
             "endpoints": {
                 "/ask": "POST - Consultar (legacy)",
-                "/ask_stream": "POST - Consultar con streaming 8000 tokens",
+                "/ask_stream": "POST - Consultar con streaming 16000 tokens",
                 "/health": "GET - Estado"
             }
         }), 404
