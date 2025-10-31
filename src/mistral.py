@@ -56,23 +56,15 @@ class MistralClient:
             )
             
             # Generator que envía cada chunk conforme llega
-            token_count = 0
-            warned = False
-            
             for chunk in stream:
                 if chunk.data.choices:
                     delta = chunk.data.choices[0].delta.content
                     if delta:
                         yield delta
-                        token_count += len(delta.split()) * 1.3  # Aproximación de tokens
-                        
-                        # ⚠️ Advertencia si se acerca al límite (87.5% = 14000 tokens)
-                        if token_count > 14000 and not warned:
-                            yield "\n\n💡 *Nota: Respuesta muy extensa. Si necesitas más detalles, consulta secciones específicas por separado.*"
-                            warned = True
             
-            # ✅ CRÍTICO: Señal de finalización (sin texto visible)
+            # ✅ CRÍTICO: Señal de finalización consistente (AMBAS SEÑALES)
             yield "__STREAM_DONE__"
+            yield "[STREAM_COMPLETE]"
                         
         except Exception as e:
             error_str = str(e).lower()
@@ -83,6 +75,10 @@ class MistralClient:
                 yield "\n\n⚠️ **Error de autenticación**\n\nLa API key no es válida."
             else:
                 yield f"\n\n⚠️ **Error del sistema**\n\n{str(e)[:200]}"
+            
+            # ✅ Asegurar señal de finalización incluso en errores
+            yield "__STREAM_DONE__"
+            yield "[STREAM_COMPLETE]"
 
     def generate(self, question, domain, special_command=None):
         """Generar respuesta COMPLETA con retry automático (método LEGACY - 16000 tokens)"""
