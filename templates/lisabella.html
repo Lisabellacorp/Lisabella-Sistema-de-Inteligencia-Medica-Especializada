@@ -655,6 +655,7 @@
             questionInput.focus();
         }
 
+        // ✅ CORRECCIÓN 1: Detecta __STREAM_DONE__ como TEXTO (no solo JSON)
         async function callBackendStream(question) {
             const response = await fetch(`${BACKEND_URL}/ask_stream`, {
                 method: 'POST',
@@ -671,6 +672,7 @@
             let buffer = '';
             let currentBubble = null;
             let fullContent = '';
+            let streamCompleted = false;
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -692,17 +694,36 @@
                         }
                         else if (data.type === 'init') {
                             currentBubble = createStreamingBubble();
-                            fullContent = `<span class="status-badge status-approved">✅ Respuesta Procesada</span><br>`;
+                            fullContent = '';
                         }
                         else if (data.type === 'chunk') {
                             if (currentBubble) {
+                                // ✅ NUEVO: Detectar señal de finalización DENTRO del texto
+                                if (data.content.includes('__STREAM_DONE__') || 
+                                    data.content.includes('[STREAM_COMPLETE]')) {
+                                    // Remover la señal del contenido
+                                    const cleanContent = data.content
+                                        .replace('__STREAM_DONE__', '')
+                                        .replace('[STREAM_COMPLETE]', '');
+                                    
+                                    if (cleanContent) {
+                                        fullContent += cleanContent;
+                                        updateStreamingBubble(currentBubble, formatMarkdown(fullContent));
+                                    }
+                                    
+                                    finalizeStreamingBubble(currentBubble, true);
+                                    streamCompleted = true;
+                                    return;
+                                }
+                                
                                 fullContent += data.content;
                                 updateStreamingBubble(currentBubble, formatMarkdown(fullContent));
                             }
                         }
                         else if (data.type === 'done') {
-                            if (currentBubble) {
-                                finalizeStreamingBubble(currentBubble);
+                            if (currentBubble && !streamCompleted) {
+                                finalizeStreamingBubble(currentBubble, true);
+                                streamCompleted = true;
                             }
                             return;
                         }
@@ -710,9 +731,14 @@
                             throw new Error(data.message);
                         }
                     } catch (parseError) {
-                        console.error('Error parseando JSON:', parseError);
+                        console.error('Error parseando JSON:', parseError, 'Línea:', line);
                     }
                 }
+            }
+
+            // Fallback: Si termina sin señal de done
+            if (currentBubble && !streamCompleted) {
+                finalizeStreamingBubble(currentBubble, false);
             }
         }
 
@@ -737,19 +763,21 @@
             }
         }
 
+        // ✅ CORRECCIÓN 2: Badge solo aparece DESPUÉS de confirmar éxito
         function createStreamingBubble() {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message bot';
             const bubble = document.createElement('div');
             bubble.className = 'message-bubble';
+            
+            // ✅ SOLO indicador de generación (sin badge todavía)
             const indicator = document.createElement('div');
             indicator.className = 'streaming-indicator';
             indicator.innerHTML = '<span>Generando respuesta</span><div class="streaming-dots"><span></span><span></span><span></span></div>';
             bubble.appendChild(indicator);
+            
             messageDiv.appendChild(bubble);
             messagesArea.appendChild(messageDiv);
-            
-            // ✅ Auto-scroll inicial
             messagesArea.scrollTop = messagesArea.scrollHeight;
             
             return bubble;
@@ -770,20 +798,31 @@
                 }
             });
             
-            // ✅ SOLUCIÓN: Auto-scroll automático mientras se genera la respuesta
             if (!userHasScrolled) {
                 messagesArea.scrollTop = messagesArea.scrollHeight;
             }
         }
 
-        function finalizeStreamingBubble(bubble) {
+        // ✅ CORRECCIÓN 3: Badge se agrega SOLO cuando finaliza con éxito
+        function finalizeStreamingBubble(bubble, success = true) {
             const indicator = bubble.querySelector('.streaming-indicator');
             if (indicator) indicator.remove();
             
-            // ✅ Asegurar scroll final
+            // ✅ NUEVO: Agregar badge solo si fue exitoso
+            if (success) {
+                const badge = document.createElement('span');
+                badge.className = 'status-badge status-approved';
+                badge.textContent = '✅ Respuesta Procesada';
+                
+                // Insertar al inicio del contenido
+                bubble.insertBefore(badge, bubble.firstChild);
+                bubble.insertBefore(document.createElement('br'), badge.nextSibling);
+            }
+            
             messagesArea.scrollTop = messagesArea.scrollHeight;
         }
 
+        // ✅ CORRECCIÓN 4: Mejorar renderizado de tablas (wrapper desde inicio)
         function formatMarkdown(text) {
             if (!text) return '';
             
@@ -797,11 +836,15 @@
             for (let i = 0; i < lines.length; i++) {
                 let line = lines[i];
 
+                // Detectar inicio de tabla
                 if (line.includes('|') && !inTable) {
                     if (i + 1 < lines.length && lines[i + 1].match(/^\|[\s:-]+\|/)) {
                         inTable = true;
                         tableRows = [];
-                        if (inList) { result += `</${listType}>`; inList = false; }
+                        if (inList) { 
+                            result += `</${listType}>`; 
+                            inList = false; 
+                        }
                     }
                 }
 
@@ -820,6 +863,7 @@
                     continue;
                 }
 
+                // Headers (h1-h4)
                 if (line.match(/^#### /)) {
                     if (inList) { result += `</${listType}>`; inList = false; }
                     result += '<h4>' + line.replace(/^#### /, '') + '</h4>';
@@ -833,6 +877,7 @@
                     if (inList) { result += `</${listType}>`; inList = false; }
                     result += '<h1>' + line.replace(/^# /, '') + '</h1>';
                 }
+                // Listas no ordenadas
                 else if (line.match(/^[\-\•\*] /)) {
                     if (!inList || listType !== 'ul') {
                         if (inList) result += `</${listType}>`;
@@ -842,6 +887,7 @@
                     }
                     result += '<li>' + line.replace(/^[\-\•\*] /, '') + '</li>';
                 }
+                // Listas ordenadas
                 else if (line.match(/^\d+\. /)) {
                     if (!inList || listType !== 'ol') {
                         if (inList) result += `</${listType}>`;
@@ -851,10 +897,12 @@
                     }
                     result += '<li>' + line.replace(/^\d+\. /, '') + '</li>';
                 }
+                // Separadores
                 else if (line.match(/^---+$/)) {
                     if (inList) { result += `</${listType}>`; inList = false; }
                     result += '<hr>';
                 }
+                // Texto normal
                 else if (line.trim()) {
                     if (inList) { result += `</${listType}>`; inList = false; }
                     result += line + '<br>';
@@ -864,12 +912,14 @@
                 }
             }
 
+            // Cerrar tabla si quedó abierta
             if (inTable && tableRows.length > 0) {
                 result += buildTable(tableRows);
             }
 
             if (inList) result += `</${listType}>`;
 
+            // Formatear negritas, cursivas, código
             result = result
                 .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
                 .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -882,12 +932,14 @@
         function buildTable(rows) {
             if (rows.length < 2) return '';
 
+            // ✅ NUEVO: Wrapper desde el inicio
             let html = '<div class="table-wrapper"><table>';
             let isHeader = true;
 
             for (let i = 0; i < rows.length; i++) {
                 let row = rows[i];
 
+                // Saltar línea separadora
                 if (row.match(/^\|[\s:-]+\|/)) {
                     isHeader = false;
                     continue;
@@ -917,6 +969,7 @@
             bubble.className = 'message-bubble';
             bubble.innerHTML = content;
 
+            // Asegurar wrapper en tablas
             const tables = bubble.querySelectorAll('table');
             tables.forEach(table => {
                 if (!table.parentElement.classList.contains('table-wrapper')) {
@@ -929,13 +982,7 @@
 
             messageDiv.appendChild(bubble);
             messagesArea.appendChild(messageDiv);
-
-            // ✅ Auto-scroll para mensajes del bot
-            if (sender === 'bot') {
-                messagesArea.scrollTop = messagesArea.scrollHeight;
-            } else {
-                messagesArea.scrollTop = messagesArea.scrollHeight;
-            }
+            messagesArea.scrollTop = messagesArea.scrollHeight;
         }
 
         questionInput.focus();
