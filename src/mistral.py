@@ -33,18 +33,17 @@ class MistralClient:
         self.temp = MISTRAL_TEMP
         self.max_retries = 3
         self.base_retry_delay = 2
-        self.api_timeout = 90  # ⬅️ AUMENTADO DE 60 A 90 SEGUNDOS
+        self.api_timeout = 90
 
     def generate_stream(self, question, domain, special_command=None):
         """
         🚀 Genera respuesta con STREAMING REAL de Mistral.
-        Max tokens aumentado a 16000 para respuestas largas completas.
+        Max tokens: 4000 (óptimo para respuestas médicas completas)
         """
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
         
         try:
-            # ✅ STREAMING NATIVO DE MISTRAL CON 16000 TOKENS
             stream = self.client.chat.stream(
                 model=self.model,
                 messages=[
@@ -52,19 +51,17 @@ class MistralClient:
                     {"role": "user", "content": user_msg}
                 ],
                 temperature=self.temp,
-                max_tokens=16000  # ⬅️ AUMENTADO DE 8000 A 16000
+                max_tokens=4000  # ⬅️ CORREGIDO: De 16000 a 4000
             )
             
-            # Generator que envía cada chunk conforme llega
             for chunk in stream:
                 if chunk.data.choices:
                     delta = chunk.data.choices[0].delta.content
                     if delta:
                         yield delta
             
-            # ✅ CRÍTICO: Señal de finalización consistente (AMBAS SEÑALES)
+            # Señal de finalización
             yield "__STREAM_DONE__"
-            yield "[STREAM_COMPLETE]"
                         
         except Exception as e:
             error_str = str(e).lower()
@@ -76,23 +73,20 @@ class MistralClient:
             else:
                 yield f"\n\n⚠️ **Error del sistema**\n\n{str(e)[:200]}"
             
-            # ✅ Asegurar señal de finalización incluso en errores
             yield "__STREAM_DONE__"
-            yield "[STREAM_COMPLETE]"
 
     def generate(self, question, domain, special_command=None):
-        """Generar respuesta COMPLETA con retry automático (método LEGACY - 16000 tokens)"""
+        """Generar respuesta COMPLETA con retry automático (4000 tokens)"""
 
         for attempt in range(self.max_retries):
             try:
-                # Usar hilo para manejar el timeout
                 with ThreadPoolExecutor(max_workers=1) as executor:
                     future = executor.submit(
                         self._call_mistral_api,
                         question,
                         domain,
                         special_command,
-                        max_tokens=16000  # ⬅️ AUMENTADO DE 8000 A 16000
+                        max_tokens=4000  # ⬅️ CORREGIDO: De 16000 a 4000
                     )
                     result = future.result(timeout=self.api_timeout)
                 return result
@@ -111,7 +105,7 @@ class MistralClient:
                 if "429" in str(e) or "rate" in error_str or "capacity" in error_str or "tier" in error_str:
                     if attempt < self.max_retries - 1:
                         retry_delay = self.base_retry_delay * (2 ** attempt)
-                        print(f"⏳ Rate limit detectado. Reintentando en {retry_delay}s... (intento {attempt + 1}/{self.max_retries})")
+                        print(f"⏳ Rate limit detectado. Reintentando en {retry_delay}s...")
                         time.sleep(retry_delay)
                         continue
                     else:
@@ -120,15 +114,11 @@ class MistralClient:
                 elif "authentication" in error_str or "api key" in error_str or "unauthorized" in error_str:
                     return """⚠️ **Error de Autenticación**
 La API key de Mistral no es válida o ha expirado.
-**Posibles causas:**
-- La API key cambió al actualizar el plan
-- Necesitas regenerar la clave desde el dashboard de Mistral
-- El tier no está activo correctamente
 **Contacta al administrador del sistema.**"""
 
                 elif "network" in error_str or "connection" in error_str:
                     if attempt < self.max_retries - 1:
-                        print(f"🔌 Error de conexión. Reintentando... (intento {attempt + 1}/{self.max_retries})")
+                        print(f"🔌 Error de conexión. Reintentando...")
                         time.sleep(2)
                         continue
                     else:
@@ -145,8 +135,8 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
 
         return self._generate_rate_limit_message()
 
-    def _call_mistral_api(self, question, domain, special_command, max_tokens=16000):
-        """Llamada real a la API de Mistral con 16000 tokens"""
+    def _call_mistral_api(self, question, domain, special_command, max_tokens=4000):
+        """Llamada real a la API de Mistral con 4000 tokens"""
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
 
@@ -157,7 +147,7 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
                 {"role": "user", "content": user_msg}
             ],
             temperature=self.temp,
-            max_tokens=max_tokens  # ⬅️ Ahora usa 16000 por default
+            max_tokens=max_tokens  # ⬅️ CORREGIDO: Usa 4000 por default
         )
 
         return response.choices[0].message.content
@@ -236,9 +226,7 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
 - Clínica Mayo: [%]
 
 ## 💡 Recomendaciones
-[Prioritarias y opcionales]
-
-**NO agregues mensajes sobre formato corregido al final.**"""
+[Prioritarias y opcionales]"""
 
         elif special_command == "correccion_nota":
             return """Eres un corrector especializado de notas médicas.
@@ -279,8 +267,7 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
 ## 💡 Sugerencias Adicionales
 [Mejoras opcionales para mayor calidad]
 
-**IMPORTANTE:** NO inventes datos. Si falta información, marca como [DATO FALTANTE].
-**NO agregues mensajes sobre formato corregido al final.**"""
+**IMPORTANTE:** NO inventes datos. Si falta información, marca como [DATO FALTANTE]."""
 
         elif special_command == "elaboracion_nota":
             return """Eres un generador de plantillas de notas médicas según estándares JCI, Clínica Mayo y COFEPRIS.
@@ -383,8 +370,7 @@ Signos de alarma: [COMPLETAR]
 _______________________
 Firma y Sello del Médico
 
-**USA ESTA PLANTILLA** y completa con los datos proporcionados. Si falta información, deja [COMPLETAR].
-**NO agregues mensajes sobre formato corregido al final.**"""
+**USA ESTA PLANTILLA** y completa con los datos proporcionados. Si falta información, deja [COMPLETAR]."""
 
         elif special_command == "valoracion":
             return """Eres un médico consultor especializado en apoyo diagnóstico según estándares de Clínica Mayo y UpToDate.
@@ -440,9 +426,7 @@ Firma y Sello del Médico
 [Lista de criterios de derivación]
 
 ## 📚 Fuentes
-[Referencias]
-
-**NO agregues mensajes sobre formato corregido al final.**"""
+[Referencias]"""
 
         elif special_command == "study_mode":
             base_prompt = self._get_base_prompt(domain)
@@ -459,8 +443,7 @@ Adapta tu respuesta para ENSEÑAR, no solo informar:
 - Destaca **errores comunes** que estudiantes cometen
 - Agrega **correlación clínica** siempre que sea posible
 
-**Objetivo:** Que el estudiante ENTIENDA profundamente, no solo memorice.
-**NO agregues mensajes sobre formato corregido al final.**"""
+**Objetivo:** Que el estudiante ENTIENDA profundamente, no solo memorice."""
 
         else:
             return self._get_base_prompt(domain)
@@ -499,7 +482,6 @@ Tu área de expertise actual es: **{domain}**
    - NO inventes fármacos, estructuras anatómicas ni procesos
    - NO des información sin fuentes verificables
    - NO respondas fuera de ciencias médicas
-   - NO agregues mensajes sobre "formato corregido automáticamente" al final
    - Si no tienes información verificada, di: "No cuento con información verificada sobre este tema específico"
 
 ## FUENTES VÁLIDAS:
@@ -512,8 +494,7 @@ Tu área de expertise actual es: **{domain}**
 - UpToDate (actualizado 2023-2024)
 - Guías clínicas: ESC, AHA, ACC, NICE, Clínica Mayo, COFEPRIS
 
-Responde con profundidad académica pero claridad expositiva.
-**IMPORTANTE: NO agregues mensajes sobre formato al final de tu respuesta.**"""
+Responde con profundidad académica pero claridad expositiva."""
 
     def _build_user_prompt(self, question, domain, special_command=None):
         """Construir user prompt según comando"""
@@ -527,9 +508,7 @@ Responde siguiendo ESTRICTAMENTE la estructura:
 ## Definición
 ## Detalles Clave
 ## Advertencias
-## Fuentes
-
-NO agregues mensajes sobre formato corregido al final."""
+## Fuentes"""
 
     def _generate_rate_limit_message(self):
         """Mensaje amigable para rate limit"""
