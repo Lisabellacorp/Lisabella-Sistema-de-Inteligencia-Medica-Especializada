@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError
 # ✅ IMPORTACIÓN SEGURA PARA RENDER
 try:
     from mistralai import Mistral
+    import httpx
     MISTRAL_AVAILABLE = True
 except ImportError:
     MISTRAL_AVAILABLE = False
@@ -28,17 +29,30 @@ class MistralClient:
         if not MISTRAL_KEY:
             raise Exception("MISTRAL_API_KEY no configurada")
 
-        self.client = Mistral(api_key=MISTRAL_KEY)
+        # ✅ TIMEOUT CONFIGURADO A NIVEL HTTP
+        self._http_timeout = httpx.Timeout(
+            connect=5.0,   # 5s para conectar
+            read=25.0,     # 25s para primera respuesta (antes de 30s de Render)
+            write=5.0,     # 5s para enviar request
+            pool=5.0       # 5s para obtener conexión del pool
+        )
+
+        self.client = Mistral(
+            api_key=MISTRAL_KEY,
+            timeout=self._http_timeout  # ✅ APLICAR TIMEOUT
+        )
+        
         self.model = MISTRAL_MODEL
         self.temp = MISTRAL_TEMP
         self.max_retries = 3
         self.base_retry_delay = 2
-        self.api_timeout = 90
+        self.api_timeout = 25  # ✅ REDUCIDO de 90 a 25 segundos
 
     def generate_stream(self, question, domain, special_command=None):
         """
         🚀 Genera respuesta con STREAMING REAL de Mistral.
         Max tokens: 4000 (óptimo para respuestas médicas completas)
+        Timeout: 25 segundos (antes de timeout de Render)
         """
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
@@ -51,13 +65,27 @@ class MistralClient:
                     {"role": "user", "content": user_msg}
                 ],
                 temperature=self.temp,
-                max_tokens=4000  # ⬅️ CORREGIDO: De 16000 a 4000
+                max_tokens=4000
             )
             
+            token_count = 0
+            start_time = time.time()
+            
             for chunk in stream:
+                # ✅ TIMEOUT MANUAL (backup del timeout HTTP)
+                elapsed = time.time() - start_time
+                if elapsed > 25:
+                    yield "\n\n⏰ **La respuesta está tardando demasiado**\n\n"
+                    yield "**Intenta:**\n"
+                    yield "• Hacer una pregunta más específica\n"
+                    yield "• Dividir tu consulta en partes más pequeñas\n"
+                    yield "__STREAM_DONE__"
+                    return
+                
                 if chunk.data.choices:
                     delta = chunk.data.choices[0].delta.content
                     if delta:
+                        token_count += 1
                         yield delta
             
             # Señal de finalización
@@ -66,12 +94,20 @@ class MistralClient:
         except Exception as e:
             error_str = str(e).lower()
             
-            if "429" in str(e) or "rate" in error_str:
-                yield "\n\n⏳ **Sistema temporalmente saturado**\n\nEspera 1-2 minutos e intenta nuevamente."
+            if "timeout" in error_str or "timed out" in error_str:
+                yield "\n\n⏰ **Timeout de API**\n\n"
+                yield "La respuesta excedió el tiempo límite (25 segundos).\n\n"
+                yield "**Intenta:**\n"
+                yield "• Una pregunta más breve y específica\n"
+                yield "• Dividir tu consulta en partes\n"
+            elif "429" in str(e) or "rate" in error_str:
+                yield "\n\n⏳ **Sistema temporalmente saturado**\n\n"
+                yield "Espera 1-2 minutos e intenta nuevamente.\n"
             elif "authentication" in error_str:
-                yield "\n\n⚠️ **Error de autenticación**\n\nLa API key no es válida."
+                yield "\n\n⚠️ **Error de autenticación**\n\n"
+                yield "La API key no es válida.\n"
             else:
-                yield f"\n\n⚠️ **Error del sistema**\n\n{str(e)[:200]}"
+                yield f"\n\n⚠️ **Error del sistema**\n\n{str(e)[:200]}\n"
             
             yield "__STREAM_DONE__"
 
@@ -86,7 +122,7 @@ class MistralClient:
                         question,
                         domain,
                         special_command,
-                        max_tokens=4000  # ⬅️ CORREGIDO: De 16000 a 4000
+                        max_tokens=4000
                     )
                     result = future.result(timeout=self.api_timeout)
                 return result
@@ -97,12 +133,20 @@ class MistralClient:
                     time.sleep(self.base_retry_delay)
                     continue
                 else:
-                    return self._generate_rate_limit_message()
+                    return self._generate_timeout_message()
 
             except Exception as e:
                 error_str = str(e).lower()
 
-                if "429" in str(e) or "rate" in error_str or "capacity" in error_str or "tier" in error_str:
+                if "timeout" in error_str:
+                    if attempt < self.max_retries - 1:
+                        print(f"⏳ Timeout detectado. Reintentando...")
+                        time.sleep(self.base_retry_delay)
+                        continue
+                    else:
+                        return self._generate_timeout_message()
+
+                elif "429" in str(e) or "rate" in error_str or "capacity" in error_str or "tier" in error_str:
                     if attempt < self.max_retries - 1:
                         retry_delay = self.base_retry_delay * (2 ** attempt)
                         print(f"⏳ Rate limit detectado. Reintentando en {retry_delay}s...")
@@ -147,7 +191,7 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
                 {"role": "user", "content": user_msg}
             ],
             temperature=self.temp,
-            max_tokens=max_tokens  # ⬅️ CORREGIDO: Usa 4000 por default
+            max_tokens=max_tokens
         )
 
         return response.choices[0].message.content
@@ -509,6 +553,23 @@ Responde siguiendo ESTRICTAMENTE la estructura:
 ## Detalles Clave
 ## Advertencias
 ## Fuentes"""
+
+    def _generate_timeout_message(self):
+        """Mensaje amigable para timeout"""
+        return """⏰ **Timeout: La respuesta está tardando demasiado**
+
+Lo siento, la pregunta excedió el tiempo máximo de procesamiento (25 segundos).
+
+**¿Qué puedes hacer?**
+- Haz una **pregunta más específica y breve**
+- **Divide** tu consulta en partes más pequeñas
+- Si es una nota médica larga, usa el módulo especializado (próximamente)
+
+**Ejemplo:**
+❌ "Explica todo sobre el infarto de miocardio"
+✅ "Explica la fisiopatología del infarto de miocardio"
+
+**Nota:** Esto es un límite técnico del servidor, no un error de Lisabella."""
 
     def _generate_rate_limit_message(self):
         """Mensaje amigable para rate limit"""
