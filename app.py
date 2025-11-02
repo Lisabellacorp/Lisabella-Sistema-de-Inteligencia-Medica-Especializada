@@ -65,6 +65,44 @@ def ask():
         }), 500
 
 
+@app.route('/ask_stream', methods=['POST', 'OPTIONS'])
+def ask_stream():
+    """Endpoint de compatibilidad - redirige a /ask para HTML en cache"""
+    if request.method == 'OPTIONS':
+        return '', 204
+    
+    if not lisabella:
+        return jsonify({
+            "status": "error",
+            "response": "Sistema no inicializado"
+        }), 500
+    
+    try:
+        data = request.get_json()
+        question = data.get('question', '')
+        
+        if not question:
+            return jsonify({
+                "status": "error",
+                "response": "Pregunta vacía"
+            }), 400
+        
+        print(f"📥 [COMPATIBILIDAD] {question[:50]}...")
+        
+        # Usar el mismo endpoint /ask para consistencia
+        result = lisabella.ask(question)
+        
+        print(f"✅ [COMPATIBILIDAD] Respuesta generada")
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"❌ Error en compatibilidad: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "response": f"Error: {str(e)}"
+        }), 500
+
+
 @app.route('/health', methods=['GET'])
 def health():
     """Health check"""
@@ -72,7 +110,7 @@ def health():
     return jsonify({
         "status": status,
         "message": "Lisabella funcionando" if lisabella else "Error",
-        "version": "2.0-no-streaming",
+        "version": "2.0-sin-streaming",
         "timestamp": str(datetime.now())
     }), 200 if lisabella else 500
 
@@ -85,9 +123,10 @@ def home():
     except Exception as e:
         return jsonify({
             "name": "Lisabella API",
-            "version": "2.0-no-streaming",
+            "version": "2.0-sin-streaming",
             "endpoints": {
-                "/ask": "POST - Consultar",
+                "/ask": "POST - Consultar (recomendado)",
+                "/ask_stream": "POST - Compatibilidad",
                 "/health": "GET - Estado"
             }
         }), 200
