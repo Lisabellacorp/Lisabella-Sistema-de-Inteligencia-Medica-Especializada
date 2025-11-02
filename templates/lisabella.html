@@ -125,7 +125,7 @@
             display: flex;
             flex-direction: column;
             min-height: 500px;
-            max-height: calc(100vh - 400px);
+            max-height: 90vh;
         }
         .messages-area {
             flex: 1;
@@ -596,10 +596,8 @@
         const btnText = document.getElementById('btnText');
         const BACKEND_URL = 'https://lisabella.onrender.com';
 
-        // ✅ Variable para detectar scroll manual del usuario
         let userHasScrolled = false;
 
-        // ✅ Detector de scroll manual
         messagesArea.addEventListener('scroll', () => {
             const isAtBottom = messagesArea.scrollHeight - messagesArea.scrollTop <= messagesArea.clientHeight + 100;
             userHasScrolled = !isAtBottom;
@@ -628,7 +626,6 @@
             sendBtn.disabled = true;
             btnText.innerHTML = '<span class="loading-spinner"></span>';
 
-            // ✅ Reset scroll tracker al enviar nueva pregunta
             userHasScrolled = false;
 
             try {
@@ -655,8 +652,9 @@
             questionInput.focus();
         }
 
-        // ✅ CORRECCIÓN 1: Detecta __STREAM_DONE__ como TEXTO (no solo JSON)
         async function callBackendStream(question) {
+            console.log('🔵 Iniciando stream para:', question.substring(0, 50) + '...');
+            
             const response = await fetch(`${BACKEND_URL}/ask_stream`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -673,72 +671,114 @@
             let currentBubble = null;
             let fullContent = '';
             let streamCompleted = false;
+            let chunkCount = 0;
+            let lastUpdateTime = Date.now();
+            const TIMEOUT_MS = 30000;
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
+            const timeoutCheck = setInterval(() => {
+                if (!streamCompleted && currentBubble && (Date.now() - lastUpdateTime > TIMEOUT_MS)) {
+                    console.warn('⚠️ Stream timeout detectado, finalizando...');
+                    clearInterval(timeoutCheck);
+                    finalizeStreamingBubble(currentBubble, true);
+                    streamCompleted = true;
+                }
+            }, 5000);
 
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop();
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) {
+                        console.log('✅ Stream terminado. Total chunks:', chunkCount);
+                        break;
+                    }
 
-                for (const line of lines) {
-                    if (!line.trim()) continue;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
 
-                    try {
-                        const data = JSON.parse(line);
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
 
-                        if (data.type === 'complete') {
-                            handleLegacyResponse(data.data);
-                            return;
-                        }
-                        else if (data.type === 'init') {
-                            currentBubble = createStreamingBubble();
-                            fullContent = '';
-                        }
-                        else if (data.type === 'chunk') {
-                            if (currentBubble) {
-                                // ✅ NUEVO: Detectar señal de finalización DENTRO del texto
-                                if (data.content.includes('__STREAM_DONE__') || 
-                                    data.content.includes('[STREAM_COMPLETE]')) {
-                                    // Remover la señal del contenido
-                                    const cleanContent = data.content
-                                        .replace('__STREAM_DONE__', '')
-                                        .replace('[STREAM_COMPLETE]', '');
+                        try {
+                            const data = JSON.parse(line);
+                            lastUpdateTime = Date.now();
+
+                            if (data.type === 'complete') {
+                                console.log('📦 Respuesta completa recibida (modo legacy)');
+                                clearInterval(timeoutCheck);
+                                handleLegacyResponse(data.data);
+                                return;
+                            }
+                            else if (data.type === 'init') {
+                                console.log('🎬 Iniciando burbuja de streaming');
+                                currentBubble = createStreamingBubble();
+                                fullContent = '';
+                                chunkCount = 0;
+                            }
+                            else if (data.type === 'chunk') {
+                                if (currentBubble) {
+                                    chunkCount++;
+                                    
+                                    let cleanContent = data.content;
+                                    const hasEndSignal = cleanContent.includes('__STREAM_DONE__') || 
+                                                        cleanContent.includes('[STREAM_COMPLETE]');
+                                    
+                                    if (hasEndSignal) {
+                                        console.log('🎯 Señal de finalización detectada en chunk', chunkCount);
+                                        cleanContent = cleanContent
+                                            .replace('__STREAM_DONE__', '')
+                                            .replace('[STREAM_COMPLETE]', '');
+                                    }
                                     
                                     if (cleanContent) {
                                         fullContent += cleanContent;
+                                        console.log(`📝 Chunk ${chunkCount} (${cleanContent.length} chars)`);
                                         updateStreamingBubble(currentBubble, formatMarkdown(fullContent));
                                     }
                                     
+                                    if (hasEndSignal && !streamCompleted) {
+                                        clearInterval(timeoutCheck);
+                                        finalizeStreamingBubble(currentBubble, true);
+                                        streamCompleted = true;
+                                        return;
+                                    }
+                                }
+                            }
+                            else if (data.type === 'done') {
+                                console.log('✅ Señal done recibida');
+                                if (currentBubble && !streamCompleted) {
+                                    clearInterval(timeoutCheck);
                                     finalizeStreamingBubble(currentBubble, true);
                                     streamCompleted = true;
-                                    return;
                                 }
-                                
-                                fullContent += data.content;
-                                updateStreamingBubble(currentBubble, formatMarkdown(fullContent));
+                                return;
                             }
-                        }
-                        else if (data.type === 'done') {
-                            if (currentBubble && !streamCompleted) {
-                                finalizeStreamingBubble(currentBubble, true);
-                                streamCompleted = true;
+                            else if (data.type === 'error') {
+                                console.error('❌ Error del servidor:', data.message);
+                                clearInterval(timeoutCheck);
+                                throw new Error(data.message);
                             }
-                            return;
+                        } catch (parseError) {
+                            console.error('⚠️ Error parseando línea:', line.substring(0, 100));
+                            console.error('Error:', parseError.message);
                         }
-                        else if (data.type === 'error') {
-                            throw new Error(data.message);
-                        }
-                    } catch (parseError) {
-                        console.error('Error parseando JSON:', parseError, 'Línea:', line);
                     }
                 }
-            }
 
-            // Fallback: Si termina sin señal de done
-            if (currentBubble && !streamCompleted) {
-                finalizeStreamingBubble(currentBubble, false);
+                if (currentBubble && !streamCompleted) {
+                    console.log('🔚 Finalizando burbuja (stream terminó sin señal explícita)');
+                    clearInterval(timeoutCheck);
+                    finalizeStreamingBubble(currentBubble, true);
+                    streamCompleted = true;
+                }
+            } catch (error) {
+                clearInterval(timeoutCheck);
+                console.error('💥 Error en streaming:', error);
+                if (currentBubble && !streamCompleted) {
+                    finalizeStreamingBubble(currentBubble, true);
+                }
+                throw error;
             }
         }
 
@@ -763,14 +803,12 @@
             }
         }
 
-        // ✅ CORRECCIÓN 2: Badge solo aparece DESPUÉS de confirmar éxito
         function createStreamingBubble() {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message bot';
             const bubble = document.createElement('div');
             bubble.className = 'message-bubble';
             
-            // ✅ SOLO indicador de generación (sin badge todavía)
             const indicator = document.createElement('div');
             indicator.className = 'streaming-indicator';
             indicator.innerHTML = '<span>Generando respuesta</span><div class="streaming-dots"><span></span><span></span><span></span></div>';
@@ -799,30 +837,47 @@
             });
             
             if (!userHasScrolled) {
-                messagesArea.scrollTop = messagesArea.scrollHeight;
+                requestAnimationFrame(() => {
+                    messagesArea.scrollTop = messagesArea.scrollHeight;
+                });
             }
         }
 
-        // ✅ CORRECCIÓN 3: Badge se agrega SOLO cuando finaliza con éxito
         function finalizeStreamingBubble(bubble, success = true) {
-            const indicator = bubble.querySelector('.streaming-indicator');
-            if (indicator) indicator.remove();
+            console.log('🏁 Finalizando burbuja. Éxito:', success);
             
-            // ✅ NUEVO: Agregar badge solo si fue exitoso
+            const indicator = bubble.querySelector('.streaming-indicator');
+            if (indicator) {
+                indicator.remove();
+                console.log('🗑️ Indicador removido');
+            }
+            
             if (success) {
                 const badge = document.createElement('span');
                 badge.className = 'status-badge status-approved';
                 badge.textContent = '✅ Respuesta Procesada';
                 
-                // Insertar al inicio del contenido
                 bubble.insertBefore(badge, bubble.firstChild);
                 bubble.insertBefore(document.createElement('br'), badge.nextSibling);
+                console.log('✅ Badge de éxito agregado');
             }
             
-            messagesArea.scrollTop = messagesArea.scrollHeight;
+            const tables = bubble.querySelectorAll('table');
+            tables.forEach(table => {
+                if (!table.parentElement.classList.contains('table-wrapper')) {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'table-wrapper';
+                    table.parentNode.insertBefore(wrapper, table);
+                    wrapper.appendChild(table);
+                }
+            });
+            
+            requestAnimationFrame(() => {
+                messagesArea.scrollTop = messagesArea.scrollHeight;
+                console.log('📜 Scroll final completado');
+            });
         }
 
-        // ✅ CORRECCIÓN 4: Mejorar renderizado de tablas (wrapper desde inicio)
         function formatMarkdown(text) {
             if (!text) return '';
             
@@ -836,7 +891,6 @@
             for (let i = 0; i < lines.length; i++) {
                 let line = lines[i];
 
-                // Detectar inicio de tabla
                 if (line.includes('|') && !inTable) {
                     if (i + 1 < lines.length && lines[i + 1].match(/^\|[\s:-]+\|/)) {
                         inTable = true;
@@ -863,21 +917,19 @@
                     continue;
                 }
 
-                // Headers (h1-h4)
                 if (line.match(/^#### /)) {
                     if (inList) { result += `</${listType}>`; inList = false; }
-                    result += '<h4>' + line.replace(/^#### /, '') + '</h4>';
+                    result += '<h4>' + escapeHtml(line.replace(/^#### /, '')) + '</h4>';
                 } else if (line.match(/^### /)) {
                     if (inList) { result += `</${listType}>`; inList = false; }
-                    result += '<h3>' + line.replace(/^### /, '') + '</h3>';
+                    result += '<h3>' + escapeHtml(line.replace(/^### /, '')) + '</h3>';
                 } else if (line.match(/^## /)) {
                     if (inList) { result += `</${listType}>`; inList = false; }
-                    result += '<h2>' + line.replace(/^## /, '') + '</h2>';
+                    result += '<h2>' + escapeHtml(line.replace(/^## /, '')) + '</h2>';
                 } else if (line.match(/^# /)) {
                     if (inList) { result += `</${listType}>`; inList = false; }
-                    result += '<h1>' + line.replace(/^# /, '') + '</h1>';
+                    result += '<h1>' + escapeHtml(line.replace(/^# /, '')) + '</h1>';
                 }
-                // Listas no ordenadas
                 else if (line.match(/^[\-\•\*] /)) {
                     if (!inList || listType !== 'ul') {
                         if (inList) result += `</${listType}>`;
@@ -885,9 +937,8 @@
                         inList = true;
                         listType = 'ul';
                     }
-                    result += '<li>' + line.replace(/^[\-\•\*] /, '') + '</li>';
+                    result += '<li>' + escapeHtml(line.replace(/^[\-\•\*] /, '')) + '</li>';
                 }
-                // Listas ordenadas
                 else if (line.match(/^\d+\. /)) {
                     if (!inList || listType !== 'ol') {
                         if (inList) result += `</${listType}>`;
@@ -895,31 +946,27 @@
                         inList = true;
                         listType = 'ol';
                     }
-                    result += '<li>' + line.replace(/^\d+\. /, '') + '</li>';
+                    result += '<li>' + escapeHtml(line.replace(/^\d+\. /, '')) + '</li>';
                 }
-                // Separadores
                 else if (line.match(/^---+$/)) {
                     if (inList) { result += `</${listType}>`; inList = false; }
                     result += '<hr>';
                 }
-                // Texto normal
                 else if (line.trim()) {
                     if (inList) { result += `</${listType}>`; inList = false; }
-                    result += line + '<br>';
+                    result += escapeHtml(line) + '<br>';
                 } else {
                     if (inList) { result += `</${listType}>`; inList = false; }
                     result += '<br>';
                 }
             }
 
-            // Cerrar tabla si quedó abierta
             if (inTable && tableRows.length > 0) {
                 result += buildTable(tableRows);
             }
 
             if (inList) result += `</${listType}>`;
 
-            // Formatear negritas, cursivas, código
             result = result
                 .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
                 .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -929,17 +976,21 @@
             return result;
         }
 
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         function buildTable(rows) {
             if (rows.length < 2) return '';
 
-            // ✅ NUEVO: Wrapper desde el inicio
             let html = '<div class="table-wrapper"><table>';
             let isHeader = true;
 
             for (let i = 0; i < rows.length; i++) {
                 let row = rows[i];
 
-                // Saltar línea separadora
                 if (row.match(/^\|[\s:-]+\|/)) {
                     isHeader = false;
                     continue;
@@ -969,7 +1020,6 @@
             bubble.className = 'message-bubble';
             bubble.innerHTML = content;
 
-            // Asegurar wrapper en tablas
             const tables = bubble.querySelectorAll('table');
             tables.forEach(table => {
                 if (!table.parentElement.classList.contains('table-wrapper')) {
