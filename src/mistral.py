@@ -6,7 +6,6 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError
 # ✅ IMPORTACIÓN SEGURA PARA RENDER
 try:
     from mistralai import Mistral
-    import httpx
     MISTRAL_AVAILABLE = True
 except ImportError:
     MISTRAL_AVAILABLE = False
@@ -29,19 +28,7 @@ class MistralClient:
         if not MISTRAL_KEY:
             raise Exception("MISTRAL_API_KEY no configurada")
 
-        # ✅ TIMEOUT CONFIGURADO A NIVEL HTTP
-        self._http_timeout = httpx.Timeout(
-            connect=5.0,   # 5s para conectar
-            read=25.0,     # 25s para primera respuesta (antes de 30s de Render)
-            write=5.0,     # 5s para enviar request
-            pool=5.0       # 5s para obtener conexión del pool
-        )
-
-        self.client = Mistral(
-            api_key=MISTRAL_KEY,
-            timeout=self._http_timeout  # ✅ APLICAR TIMEOUT
-        )
-        
+        self.client = Mistral(api_key=MISTRAL_KEY)
         self.model = MISTRAL_MODEL
         self.temp = MISTRAL_TEMP
         self.max_retries = 3
@@ -72,13 +59,13 @@ class MistralClient:
             start_time = time.time()
             
             for chunk in stream:
-                # ✅ TIMEOUT MANUAL (backup del timeout HTTP)
+                # ✅ TIMEOUT MANUAL (backup)
                 elapsed = time.time() - start_time
                 if elapsed > 25:
                     yield "\n\n⏰ **La respuesta está tardando demasiado**\n\n"
                     yield "**Intenta:**\n"
                     yield "• Hacer una pregunta más específica\n"
-                    yield "• Dividir tu consulta en partes más pequeñas\n"
+                    yield "• Dividir tu consulta en partes\n"
                     yield "__STREAM_DONE__"
                     return
                 
@@ -563,7 +550,7 @@ Lo siento, la pregunta excedió el tiempo máximo de procesamiento (25 segundos)
 **¿Qué puedes hacer?**
 - Haz una **pregunta más específica y breve**
 - **Divide** tu consulta en partes más pequeñas
-- Si es una nota médica larga, usa el módulo especializado (próximamente)
+- Si es una nota médica larga, intenta resumir los puntos clave
 
 **Ejemplo:**
 ❌ "Explica todo sobre el infarto de miocardio"
