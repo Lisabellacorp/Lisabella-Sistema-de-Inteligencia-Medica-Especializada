@@ -809,10 +809,7 @@
             const bubble = document.createElement('div');
             bubble.className = 'message-bubble';
             
-            const indicator = document.createElement('div');
-            indicator.className = 'streaming-indicator';
-            indicator.innerHTML = '<span>Generando respuesta</span><div class="streaming-dots"><span></span><span></span><span></span></div>';
-            bubble.appendChild(indicator);
+            // ✅ SIN indicador inicial - aparecerá solo cuando haya contenido
             
             messageDiv.appendChild(bubble);
             messagesArea.appendChild(messageDiv);
@@ -822,10 +819,10 @@
         }
 
         function updateStreamingBubble(bubble, content) {
-            const indicator = bubble.querySelector('.streaming-indicator');
+            // ✅ Actualizar contenido directamente (sin indicador permanente)
             bubble.innerHTML = content;
-            bubble.appendChild(indicator);
             
+            // Envolver tablas inmediatamente
             const tables = bubble.querySelectorAll('table');
             tables.forEach(table => {
                 if (!table.parentElement.classList.contains('table-wrapper')) {
@@ -846,22 +843,19 @@
         function finalizeStreamingBubble(bubble, success = true) {
             console.log('🏁 Finalizando burbuja. Éxito:', success);
             
-            const indicator = bubble.querySelector('.streaming-indicator');
-            if (indicator) {
-                indicator.remove();
-                console.log('🗑️ Indicador removido');
-            }
-            
+            // ✅ Agregar badge solo si fue exitoso
             if (success) {
                 const badge = document.createElement('span');
                 badge.className = 'status-badge status-approved';
                 badge.textContent = '✅ Respuesta Procesada';
                 
+                // Insertar al inicio del contenido
                 bubble.insertBefore(badge, bubble.firstChild);
                 bubble.insertBefore(document.createElement('br'), badge.nextSibling);
                 console.log('✅ Badge de éxito agregado');
             }
             
+            // Asegurar que todas las tablas tengan wrapper
             const tables = bubble.querySelectorAll('table');
             tables.forEach(table => {
                 if (!table.parentElement.classList.contains('table-wrapper')) {
