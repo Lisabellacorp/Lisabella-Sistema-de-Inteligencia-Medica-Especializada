@@ -1,12 +1,15 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 import os
 import sys
+import json
+import time
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.main import Lisabella
+from src.wrapper import Result
 
 app = Flask(__name__, static_folder='templates', static_url_path='')
 
@@ -18,18 +21,17 @@ CORS(app, resources={
     }
 })
 
-# Inicializar Lisabella
 try:
     lisabella = Lisabella()
-    print(f"✅ [{datetime.now()}] Lisabella inicializada")
+    print(f"✅ [{datetime.now()}] Lisabella inicializada correctamente")
 except Exception as e:
-    print(f"❌ [{datetime.now()}] Error: {str(e)}")
+    print(f"❌ [{datetime.now()}] Error al inicializar Lisabella: {str(e)}")
     lisabella = None
 
 
 @app.route('/ask', methods=['POST', 'OPTIONS'])
 def ask():
-    """Endpoint principal (SIN streaming)"""
+    """Endpoint legacy (sin streaming)"""
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -49,16 +51,12 @@ def ask():
                 "response": "Pregunta vacía"
             }), 400
         
-        print(f"📥 [{datetime.now()}] {question[:50]}...")
-        
-        # Procesar con Lisabella (sin streaming)
+        print(f"📥 [{datetime.now()}] /ask: {question[:50]}...")
         result = lisabella.ask(question)
-        
-        print(f"✅ [{datetime.now()}] Respuesta generada")
         return jsonify(result)
     
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
+        print(f"❌ [{datetime.now()}] Error en /ask: {str(e)}")
         return jsonify({
             "status": "error",
             "response": f"Error: {str(e)}"
@@ -67,7 +65,7 @@ def ask():
 
 @app.route('/ask_stream', methods=['POST', 'OPTIONS'])
 def ask_stream():
-    """Endpoint de compatibilidad - redirige a /ask para HTML en cache"""
+    """🚀 Endpoint con streaming optimizado para Render (con heartbeat)"""
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -82,21 +80,128 @@ def ask_stream():
         question = data.get('question', '')
         
         if not question:
-            return jsonify({
-                "status": "error",
-                "response": "Pregunta vacía"
-            }), 400
+            return jsonify({"status": "error", "response": "Pregunta vacía"}), 400
         
-        print(f"📥 [COMPATIBILIDAD] {question[:50]}...")
+        print(f"📥 STREAM [{datetime.now()}] Procesando: {question[:50]}...")
         
-        # Usar el mismo endpoint /ask para consistencia
-        result = lisabella.ask(question)
+        def generate():
+            """Generator con heartbeat y chunks pequeños"""
+            try:
+                # ✅ CRÍTICO: Responder INMEDIATAMENTE (antes de 30s de Render)
+                yield json.dumps({"type": "init"}) + '\n'
+                sys.stdout.flush()
+                
+                # Clasificar pregunta (rápido)
+                classification = lisabella.wrapper.classify(question)
+                result = classification["result"]
+                
+                # Si rechazada/reformular → enviar completo
+                if result in [Result.REJECTED, Result.REFORMULATE]:
+                    response_obj = lisabella.ask(question)
+                    yield json.dumps({"type": "complete", "data": response_obj}) + '\n'
+                    sys.stdout.flush()
+                    return
+                
+                # Aprobada → metadata
+                domain = classification.get("domain", "medicina general")
+                special_cmd = classification.get("special_command")
+                
+                yield json.dumps({
+                    "type": "metadata",
+                    "domain": domain,
+                    "special_command": special_cmd,
+                    "status": "approved"
+                }) + '\n'
+                sys.stdout.flush()
+                
+                # 🚀 STREAMING con heartbeat y chunks pequeños
+                buffer = ""
+                chunk_index = 0
+                stream_done = False
+                last_heartbeat = time.time()
+                HEARTBEAT_INTERVAL = 8  # Cada 8 segundos
+                CHUNK_SIZE = 50  # ✅ REDUCIDO: De 150 a 50 caracteres
+                
+                for token in lisabella.mistral.generate_stream(question, domain, special_cmd):
+                    # ✅ HEARTBEAT: Mantener conexión viva en Render
+                    current_time = time.time()
+                    if current_time - last_heartbeat > HEARTBEAT_INTERVAL:
+                        yield json.dumps({"type": "ping"}) + '\n'
+                        sys.stdout.flush()
+                        last_heartbeat = current_time
+                        print(f"💓 Heartbeat enviado [{datetime.now()}]")
+                    
+                    # Detectar señales de finalización
+                    if token in ["__STREAM_DONE__", "[STREAM_COMPLETE]"]:
+                        # Enviar buffer restante
+                        if buffer:
+                            yield json.dumps({
+                                "type": "chunk",
+                                "index": chunk_index,
+                                "content": buffer
+                            }) + '\n'
+                            sys.stdout.flush()
+                        
+                        # Señal de done
+                        yield json.dumps({"type": "done"}) + '\n'
+                        sys.stdout.flush()
+                        print(f"✅ STREAM [{datetime.now()}] Completado correctamente")
+                        stream_done = True
+                        return
+                    
+                    buffer += token
+                    
+                    # ✅ ENVIAR CHUNKS MÁS PEQUEÑOS (50 chars o puntuación)
+                    if len(buffer) >= CHUNK_SIZE or token in ['.', '!', '?', '\n']:
+                        yield json.dumps({
+                            "type": "chunk",
+                            "index": chunk_index,
+                            "content": buffer
+                        }) + '\n'
+                        sys.stdout.flush()  # ✅ FLUSH INMEDIATO
+                        chunk_index += 1
+                        buffer = ""
+                        
+                        # Pequeño delay para evitar saturar (opcional)
+                        time.sleep(0.005)  # 5ms
+                
+                # ✅ FALLBACK: Si termina sin señal de done
+                if not stream_done:
+                    if buffer:
+                        yield json.dumps({
+                            "type": "chunk",
+                            "index": chunk_index,
+                            "content": buffer
+                        }) + '\n'
+                        sys.stdout.flush()
+                    
+                    yield json.dumps({"type": "done"}) + '\n'
+                    sys.stdout.flush()
+                    print(f"⚠️ STREAM [{datetime.now()}] Completado sin señal explícita")
+                
+            except Exception as e:
+                print(f"❌ Error en stream: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                yield json.dumps({
+                    "type": "error",
+                    "message": f"Error: {str(e)[:150]}"
+                }) + '\n'
+                sys.stdout.flush()
         
-        print(f"✅ [COMPATIBILIDAD] Respuesta generada")
-        return jsonify(result)
+        return Response(
+            generate(),
+            mimetype='application/x-ndjson',
+            headers={
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'X-Accel-Buffering': 'no',
+                'Connection': 'keep-alive',
+                'Content-Type': 'application/x-ndjson; charset=utf-8'
+            }
+        )
         
     except Exception as e:
-        print(f"❌ Error en compatibilidad: {str(e)}")
+        print(f"❌ [{datetime.now()}] Error crítico: {str(e)}")
         return jsonify({
             "status": "error",
             "response": f"Error: {str(e)}"
@@ -109,8 +214,8 @@ def health():
     status = "ok" if lisabella else "error"
     return jsonify({
         "status": status,
-        "message": "Lisabella funcionando" if lisabella else "Error",
-        "version": "2.0-sin-streaming",
+        "message": "Lisabella funcionando" if lisabella else "Sistema no inicializado",
+        "version": "1.1-render-heartbeat",
         "timestamp": str(datetime.now())
     }), 200 if lisabella else 500
 
@@ -122,14 +227,14 @@ def home():
         return app.send_static_file('lisabella.html')
     except Exception as e:
         return jsonify({
-            "name": "Lisabella API",
-            "version": "2.0-sin-streaming",
+            "error": "Frontend no encontrado",
+            "message": str(e),
             "endpoints": {
-                "/ask": "POST - Consultar (recomendado)",
-                "/ask_stream": "POST - Compatibilidad",
+                "/ask": "POST - Consultar (legacy)",
+                "/ask_stream": "POST - Consultar con streaming",
                 "/health": "GET - Estado"
             }
-        }), 200
+        }), 404
 
 
 if __name__ == '__main__':
