@@ -65,7 +65,7 @@ def ask():
 
 @app.route('/ask_stream', methods=['POST', 'OPTIONS'])
 def ask_stream():
-    """🚀 Endpoint con streaming optimizado para Render (con heartbeat)"""
+    """🚀 Endpoint con streaming optimizado para Render"""
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -85,13 +85,16 @@ def ask_stream():
         print(f"📥 STREAM [{datetime.now()}] Procesando: {question[:50]}...")
         
         def generate():
-            """Generator con heartbeat y chunks pequeños"""
+            """Generator optimizado para evitar timeout de Render"""
             try:
-                # ✅ CRÍTICO: Responder INMEDIATAMENTE (antes de 30s de Render)
-                yield json.dumps({"type": "init"}) + '\n'
+                # ✅ RESPUESTA INMEDIATA (antes de 30s de Render)
+                yield json.dumps({
+                    "type": "init",
+                    "message": "🔍 Analizando tu pregunta médica..."
+                }) + '\n'
                 sys.stdout.flush()
                 
-                # Clasificar pregunta (rápido)
+                # Clasificar pregunta (rápido, <2s)
                 classification = lisabella.wrapper.classify(question)
                 result = classification["result"]
                 
@@ -102,7 +105,7 @@ def ask_stream():
                     sys.stdout.flush()
                     return
                 
-                # Aprobada → metadata
+                # Aprobada → enviar metadata
                 domain = classification.get("domain", "medicina general")
                 special_cmd = classification.get("special_command")
                 
@@ -114,26 +117,16 @@ def ask_stream():
                 }) + '\n'
                 sys.stdout.flush()
                 
-                # 🚀 STREAMING con heartbeat y chunks pequeños
+                # 🚀 STREAMING de tokens
                 buffer = ""
                 chunk_index = 0
                 stream_done = False
-                last_heartbeat = time.time()
-                HEARTBEAT_INTERVAL = 8  # Cada 8 segundos
-                CHUNK_SIZE = 50  # ✅ REDUCIDO: De 150 a 50 caracteres
+                last_activity = time.time()
+                CHUNK_SIZE = 200  # Chunks más grandes para menos overhead
                 
                 for token in lisabella.mistral.generate_stream(question, domain, special_cmd):
-                    # ✅ HEARTBEAT: Mantener conexión viva en Render
-                    current_time = time.time()
-                    if current_time - last_heartbeat > HEARTBEAT_INTERVAL:
-                        yield json.dumps({"type": "ping"}) + '\n'
-                        sys.stdout.flush()
-                        last_heartbeat = current_time
-                        print(f"💓 Heartbeat enviado [{datetime.now()}]")
-                    
                     # Detectar señales de finalización
                     if token in ["__STREAM_DONE__", "[STREAM_COMPLETE]"]:
-                        # Enviar buffer restante
                         if buffer:
                             yield json.dumps({
                                 "type": "chunk",
@@ -142,7 +135,6 @@ def ask_stream():
                             }) + '\n'
                             sys.stdout.flush()
                         
-                        # Señal de done
                         yield json.dumps({"type": "done"}) + '\n'
                         sys.stdout.flush()
                         print(f"✅ STREAM [{datetime.now()}] Completado correctamente")
@@ -151,21 +143,19 @@ def ask_stream():
                     
                     buffer += token
                     
-                    # ✅ ENVIAR CHUNKS MÁS PEQUEÑOS (50 chars o puntuación)
-                    if len(buffer) >= CHUNK_SIZE or token in ['.', '!', '?', '\n']:
+                    # Enviar chunks cuando sea razonable
+                    if len(buffer) >= CHUNK_SIZE or token in ['.', '\n\n', '\n##']:
                         yield json.dumps({
                             "type": "chunk",
                             "index": chunk_index,
                             "content": buffer
                         }) + '\n'
-                        sys.stdout.flush()  # ✅ FLUSH INMEDIATO
+                        sys.stdout.flush()
                         chunk_index += 1
                         buffer = ""
-                        
-                        # Pequeño delay para evitar saturar (opcional)
-                        time.sleep(0.005)  # 5ms
+                        last_activity = time.time()
                 
-                # ✅ FALLBACK: Si termina sin señal de done
+                # Fallback: enviar buffer final si quedó algo
                 if not stream_done:
                     if buffer:
                         yield json.dumps({
@@ -215,7 +205,7 @@ def health():
     return jsonify({
         "status": status,
         "message": "Lisabella funcionando" if lisabella else "Sistema no inicializado",
-        "version": "1.1-render-heartbeat",
+        "version": "1.2-render-optimized",
         "timestamp": str(datetime.now())
     }), 200 if lisabella else 500
 
