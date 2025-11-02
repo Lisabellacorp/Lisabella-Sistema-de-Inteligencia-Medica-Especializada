@@ -809,8 +809,6 @@
             const bubble = document.createElement('div');
             bubble.className = 'message-bubble';
             
-            // ✅ SIN indicador inicial - aparecerá solo cuando haya contenido
-            
             messageDiv.appendChild(bubble);
             messagesArea.appendChild(messageDiv);
             messagesArea.scrollTop = messagesArea.scrollHeight;
@@ -819,10 +817,10 @@
         }
 
         function updateStreamingBubble(bubble, content) {
-            const indicator = bubble.querySelector('.streaming-indicator');
+            // ✅ CORREGIDO: Actualizar contenido directamente
             bubble.innerHTML = content;
-            bubble.appendChild(indicator);
             
+            // Envolver tablas inmediatamente
             const tables = bubble.querySelectorAll('table');
             tables.forEach(table => {
                 if (!table.parentElement.classList.contains('table-wrapper')) {
@@ -843,12 +841,6 @@
         function finalizeStreamingBubble(bubble, success = true) {
             console.log('🏁 Finalizando burbuja. Éxito:', success);
             
-            const indicator = bubble.querySelector('.streaming-indicator');
-            if (indicator) {
-                indicator.remove();
-                console.log('🗑️ Indicador removido');
-            }
-            
             if (success) {
                 const badge = document.createElement('span');
                 badge.className = 'status-badge status-approved';
@@ -859,6 +851,7 @@
                 console.log('✅ Badge de éxito agregado');
             }
             
+            // Asegurar que todas las tablas tengan wrapper
             const tables = bubble.querySelectorAll('table');
             tables.forEach(table => {
                 if (!table.parentElement.classList.contains('table-wrapper')) {
