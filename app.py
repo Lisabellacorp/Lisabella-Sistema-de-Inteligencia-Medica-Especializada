@@ -4,17 +4,15 @@ import os
 import sys
 import json
 from datetime import datetime
+import time
 
-# ✅ FIX: Agregar directorio raíz al path (compatible con Render)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.main import Lisabella
 from src.wrapper import Result
 
-# ✅ Flask configurado para servir HTML desde templates/
 app = Flask(__name__, static_folder='templates', static_url_path='')
 
-# CORS abierto
 CORS(app, resources={
     r"/*": {
         "origins": ["*"],
@@ -23,7 +21,6 @@ CORS(app, resources={
     }
 })
 
-# Inicializar Lisabella
 try:
     lisabella = Lisabella()
     print(f"✅ [{datetime.now()}] Lisabella inicializada correctamente")
@@ -34,7 +31,7 @@ except Exception as e:
 
 @app.route('/ask', methods=['POST', 'OPTIONS'])
 def ask():
-    """Endpoint legacy (sin streaming) - mantener por compatibilidad"""
+    """Endpoint legacy (sin streaming)"""
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -68,7 +65,7 @@ def ask():
 
 @app.route('/ask_stream', methods=['POST', 'OPTIONS'])
 def ask_stream():
-    """🚀 Endpoint CON STREAMING REAL (16000 tokens)"""
+    """🚀 Endpoint con streaming optimizado para Render"""
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -88,65 +85,78 @@ def ask_stream():
         print(f"📥 STREAM [{datetime.now()}] Procesando: {question[:50]}...")
         
         def generate():
-            """Generator con streaming REAL de Mistral (16000 tokens)"""
+            """Generator con HEARTBEAT para mantener conexión viva en Render"""
             try:
-                # 1. Clasificar pregunta (rápido, <1s)
+                # ✅ CRÍTICO: Enviar init INMEDIATAMENTE (antes de 30s de Render)
+                yield json.dumps({"type": "init"}) + '\n'
+                sys.stdout.flush()
+                
+                # Clasificar pregunta
                 classification = lisabella.wrapper.classify(question)
                 result = classification["result"]
                 
-                # 2. Si rechazada/reformular → enviar completo
+                # Si rechazada/reformular → enviar completo
                 if result in [Result.REJECTED, Result.REFORMULATE]:
                     response_obj = lisabella.ask(question)
                     yield json.dumps({"type": "complete", "data": response_obj}) + '\n'
+                    sys.stdout.flush()
                     return
                 
-                # 3. Aprobada → enviar metadata
+                # Aprobada → metadata
                 domain = classification.get("domain", "medicina general")
                 special_cmd = classification.get("special_command")
                 
                 yield json.dumps({
-                    "type": "init",
+                    "type": "metadata",
                     "domain": domain,
                     "special_command": special_cmd,
                     "status": "approved"
                 }) + '\n'
+                sys.stdout.flush()
                 
-                # 4. 🚀 STREAMING REAL: Tokens conforme llegan de Mistral
+                # 🚀 STREAMING con heartbeat cada 10s
                 buffer = ""
                 chunk_index = 0
                 stream_done = False
+                last_heartbeat = time.time()
                 
                 for token in lisabella.mistral.generate_stream(question, domain, special_cmd):
-                    # ✅ DETECTAR SEÑALES DE FINALIZACIÓN (tanto texto como constante)
+                    # ✅ HEARTBEAT: Enviar ping cada 10s para mantener conexión
+                    if time.time() - last_heartbeat > 10:
+                        yield json.dumps({"type": "ping"}) + '\n'
+                        sys.stdout.flush()
+                        last_heartbeat = time.time()
+                    
+                    # Detectar señales de finalización
                     if token in ["__STREAM_DONE__", "[STREAM_COMPLETE]"]:
-                        # Enviar buffer final si hay algo
                         if buffer:
                             yield json.dumps({
                                 "type": "chunk",
                                 "index": chunk_index,
                                 "content": buffer
                             }) + '\n'
+                            sys.stdout.flush()
                         
-                        # Enviar señal de done al frontend
                         yield json.dumps({"type": "done"}) + '\n'
-                        print(f"✅ STREAM [{datetime.now()}] Completado correctamente")
+                        sys.stdout.flush()
+                        print(f"✅ STREAM [{datetime.now()}] Completado")
                         stream_done = True
                         return
                     
                     buffer += token
                     
-                    # Enviar chunks cuando tengamos contenido razonable
-                    # (≥150 caracteres O puntos/saltos de línea)
+                    # Enviar chunks cuando sea razonable
                     if len(buffer) >= 150 or token in ['.', '!', '?', '\n\n']:
                         yield json.dumps({
                             "type": "chunk",
                             "index": chunk_index,
                             "content": buffer
                         }) + '\n'
+                        sys.stdout.flush()  # ✅ FLUSH INMEDIATO
                         chunk_index += 1
                         buffer = ""
                 
-                # Fallback: Si termina sin señal de done, enviar buffer y done
+                # Fallback
                 if not stream_done:
                     if buffer:
                         yield json.dumps({
@@ -154,28 +164,33 @@ def ask_stream():
                             "index": chunk_index,
                             "content": buffer
                         }) + '\n'
+                        sys.stdout.flush()
                     
                     yield json.dumps({"type": "done"}) + '\n'
-                    print(f"⚠️ STREAM [{datetime.now()}] Completado sin señal explícita")
+                    sys.stdout.flush()
+                    print(f"⚠️ STREAM [{datetime.now()}] Completado sin señal")
                 
             except Exception as e:
                 print(f"❌ Error en stream: {str(e)}")
                 yield json.dumps({
                     "type": "error",
-                    "message": f"Error del sistema: {str(e)[:150]}"
+                    "message": f"Error: {str(e)[:150]}"
                 }) + '\n'
+                sys.stdout.flush()
         
         return Response(
             generate(),
             mimetype='application/x-ndjson',
             headers={
-                'Cache-Control': 'no-cache',
-                'X-Accel-Buffering': 'no'
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'X-Accel-Buffering': 'no',
+                'Connection': 'keep-alive',
+                'Content-Type': 'application/x-ndjson'
             }
         )
         
     except Exception as e:
-        print(f"❌ [{datetime.now()}] Error crítico en /ask_stream: {str(e)}")
+        print(f"❌ [{datetime.now()}] Error crítico: {str(e)}")
         return jsonify({
             "status": "error",
             "response": f"Error: {str(e)}"
@@ -189,7 +204,7 @@ def health():
     return jsonify({
         "status": status,
         "message": "Lisabella funcionando" if lisabella else "Sistema no inicializado",
-        "version": "1.0-streaming-16k",  # ✅ ACTUALIZADO de 8k a 16k
+        "version": "1.1-render-optimized",
         "timestamp": str(datetime.now())
     }), 200 if lisabella else 500
 
@@ -205,7 +220,7 @@ def home():
             "message": str(e),
             "endpoints": {
                 "/ask": "POST - Consultar (legacy)",
-                "/ask_stream": "POST - Consultar con streaming 16000 tokens",
+                "/ask_stream": "POST - Consultar con streaming",
                 "/health": "GET - Estado"
             }
         }), 404
