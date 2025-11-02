@@ -809,10 +809,7 @@
             const bubble = document.createElement('div');
             bubble.className = 'message-bubble';
             
-            const indicator = document.createElement('div');
-            indicator.className = 'streaming-indicator';
-            indicator.innerHTML = '<span>Generando respuesta</span><div class="streaming-dots"><span></span><span></span><span></span></div>';
-            bubble.appendChild(indicator);
+            // ✅ SIN indicador inicial - aparecerá solo cuando haya contenido
             
             messageDiv.appendChild(bubble);
             messagesArea.appendChild(messageDiv);
