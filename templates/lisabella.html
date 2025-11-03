@@ -594,7 +594,7 @@
         const questionInput = document.getElementById('questionInput');
         const sendBtn = document.getElementById('sendBtn');
         const btnText = document.getElementById('btnText');
-        const BACKEND_URL = 'https://lisabella-medical-ai.up.railway.app';
+        const BACKEND_URL = 'https://lisabella.onrender.com';
 
         let userHasScrolled = false;
 
@@ -629,9 +629,9 @@
             userHasScrolled = false;
 
             try {
-                await callBackendSSE(question);
+                await callBackendStream(question);
             } catch (error) {
-                console.error('Error en SSE:', error);
+                console.error('Error en streaming:', error);
                 try {
                     const response = await callBackendLegacy(question);
                     handleLegacyResponse(response);
@@ -652,69 +652,134 @@
             questionInput.focus();
         }
 
-        async function callBackendSSE(question) {
-            console.log('🔵 SSE: Iniciando para:', question.substring(0, 50) + '...');
+        async function callBackendStream(question) {
+            console.log('🔵 Iniciando stream para:', question.substring(0, 50) + '...');
             
-            const eventSource = new EventSource(`${BACKEND_URL}/ask_stream`);
-            let currentBubble = null;
-            let fullContent = '';
-            let chunkCount = 0;
-
-            // Enviar pregunta via POST primero
-            await fetch(`${BACKEND_URL}/ask_stream`, {
+            const response = await fetch(`${BACKEND_URL}/ask_stream`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ question: question })
             });
 
-            eventSource.onmessage = function(event) {
-                try {
-                    const data = JSON.parse(event.data);
-                    
-                    if (data.type === 'complete') {
-                        console.log('📦 SSE: Respuesta completa');
-                        eventSource.close();
-                        handleLegacyResponse(data.data);
-                        return;
-                    }
-                    else if (data.type === 'init') {
-                        console.log('🎬 SSE: Iniciando burbuja');
-                        currentBubble = createStreamingBubble();
-                        fullContent = '';
-                        chunkCount = 0;
-                    }
-                    else if (data.type === 'chunk') {
-                        if (currentBubble) {
-                            chunkCount++;
-                            fullContent += data.content;
-                            console.log(`📝 SSE Chunk ${chunkCount}`);
-                            updateStreamingBubble(currentBubble, formatMarkdown(fullContent));
-                        }
-                    }
-                    else if (data.type === 'done') {
-                        console.log('✅ SSE: Completado');
-                        eventSource.close();
-                        if (currentBubble) {
-                            finalizeStreamingBubble(currentBubble, true);
-                        }
-                    }
-                    else if (data.type === 'error') {
-                        console.error('❌ SSE Error:', data.message);
-                        eventSource.close();
-                        throw new Error(data.message);
-                    }
-                } catch (parseError) {
-                    console.error('⚠️ SSE Parse error:', parseError);
-                }
-            };
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
-            eventSource.onerror = function(error) {
-                console.error('💥 SSE Connection error:', error);
-                eventSource.close();
-                if (currentBubble) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let currentBubble = null;
+            let fullContent = '';
+            let streamCompleted = false;
+            let chunkCount = 0;
+            let lastUpdateTime = Date.now();
+            const TIMEOUT_MS = 30000;
+
+            const timeoutCheck = setInterval(() => {
+                if (!streamCompleted && currentBubble && (Date.now() - lastUpdateTime > TIMEOUT_MS)) {
+                    console.warn('⚠️ Stream timeout detectado, finalizando...');
+                    clearInterval(timeoutCheck);
+                    finalizeStreamingBubble(currentBubble, true);
+                    streamCompleted = true;
+                }
+            }, 5000);
+
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) {
+                        console.log('✅ Stream terminado. Total chunks:', chunkCount);
+                        break;
+                    }
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+
+                        try {
+                            const data = JSON.parse(line);
+                            lastUpdateTime = Date.now();
+
+                            if (data.type === 'complete') {
+                                console.log('📦 Respuesta completa recibida (modo legacy)');
+                                clearInterval(timeoutCheck);
+                                handleLegacyResponse(data.data);
+                                return;
+                            }
+                            else if (data.type === 'init') {
+                                console.log('🎬 Iniciando burbuja de streaming');
+                                currentBubble = createStreamingBubble();
+                                fullContent = '';
+                                chunkCount = 0;
+                            }
+                            else if (data.type === 'chunk') {
+                                if (currentBubble) {
+                                    chunkCount++;
+                                    
+                                    let cleanContent = data.content;
+                                    const hasEndSignal = cleanContent.includes('__STREAM_DONE__') || 
+                                                        cleanContent.includes('[STREAM_COMPLETE]');
+                                    
+                                    if (hasEndSignal) {
+                                        console.log('🎯 Señal de finalización detectada en chunk', chunkCount);
+                                        cleanContent = cleanContent
+                                            .replace('__STREAM_DONE__', '')
+                                            .replace('[STREAM_COMPLETE]', '');
+                                    }
+                                    
+                                    if (cleanContent) {
+                                        fullContent += cleanContent;
+                                        console.log(`📝 Chunk ${chunkCount} (${cleanContent.length} chars)`);
+                                        updateStreamingBubble(currentBubble, formatMarkdown(fullContent));
+                                    }
+                                    
+                                    if (hasEndSignal && !streamCompleted) {
+                                        clearInterval(timeoutCheck);
+                                        finalizeStreamingBubble(currentBubble, true);
+                                        streamCompleted = true;
+                                        return;
+                                    }
+                                }
+                            }
+                            else if (data.type === 'done') {
+                                console.log('✅ Señal done recibida');
+                                if (currentBubble && !streamCompleted) {
+                                    clearInterval(timeoutCheck);
+                                    finalizeStreamingBubble(currentBubble, true);
+                                    streamCompleted = true;
+                                }
+                                return;
+                            }
+                            else if (data.type === 'error') {
+                                console.error('❌ Error del servidor:', data.message);
+                                clearInterval(timeoutCheck);
+                                throw new Error(data.message);
+                            }
+                        } catch (parseError) {
+                            console.error('⚠️ Error parseando línea:', line.substring(0, 100));
+                            console.error('Error:', parseError.message);
+                        }
+                    }
+                }
+
+                if (currentBubble && !streamCompleted) {
+                    console.log('🔚 Finalizando burbuja (stream terminó sin señal explícita)');
+                    clearInterval(timeoutCheck);
+                    finalizeStreamingBubble(currentBubble, true);
+                    streamCompleted = true;
+                }
+            } catch (error) {
+                clearInterval(timeoutCheck);
+                console.error('💥 Error en streaming:', error);
+                if (currentBubble && !streamCompleted) {
                     finalizeStreamingBubble(currentBubble, true);
                 }
-            };
+                throw error;
+            }
         }
 
         async function callBackendLegacy(question) {
@@ -752,8 +817,10 @@
         }
 
         function updateStreamingBubble(bubble, content) {
+            // ✅ CORREGIDO: Actualizar contenido directamente
             bubble.innerHTML = content;
             
+            // Envolver tablas inmediatamente
             const tables = bubble.querySelectorAll('table');
             tables.forEach(table => {
                 if (!table.parentElement.classList.contains('table-wrapper')) {
@@ -781,9 +848,10 @@
                 
                 bubble.insertBefore(badge, bubble.firstChild);
                 bubble.insertBefore(document.createElement('br'), badge.nextSibling);
-                console.log('✅ Badge agregado');
+                console.log('✅ Badge de éxito agregado');
             }
             
+            // Asegurar que todas las tablas tengan wrapper
             const tables = bubble.querySelectorAll('table');
             tables.forEach(table => {
                 if (!table.parentElement.classList.contains('table-wrapper')) {
@@ -796,6 +864,7 @@
             
             requestAnimationFrame(() => {
                 messagesArea.scrollTop = messagesArea.scrollHeight;
+                console.log('📜 Scroll final completado');
             });
         }
 
