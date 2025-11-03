@@ -65,7 +65,7 @@ def ask():
 
 @app.route('/ask_stream', methods=['POST', 'OPTIONS'])
 def ask_stream():
-    """🚀 Endpoint con streaming optimizado para Render"""
+    """🚀 SSE Streaming - Sin límite de timeout"""
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -82,111 +82,72 @@ def ask_stream():
         if not question:
             return jsonify({"status": "error", "response": "Pregunta vacía"}), 400
         
-        print(f"📥 STREAM [{datetime.now()}] Procesando: {question[:50]}...")
+        print(f"📥 SSE [{datetime.now()}] Procesando: {question[:50]}...")
         
         def generate():
-            """Generator optimizado para evitar timeout de Render"""
+            """Generator en formato SSE"""
             try:
-                # ✅ RESPUESTA INMEDIATA (antes de 30s de Render)
-                yield json.dumps({
-                    "type": "init",
-                    "message": "🔍 Analizando tu pregunta médica..."
-                }) + '\n'
-                sys.stdout.flush()
+                # Respuesta inmediata
+                yield f"data: {json.dumps({'type': 'init', 'message': '🔍 Analizando tu pregunta médica...'})}\n\n"
                 
-                # Clasificar pregunta (rápido, <2s)
+                # Clasificar pregunta
                 classification = lisabella.wrapper.classify(question)
                 result = classification["result"]
                 
-                # Si rechazada/reformular → enviar completo
+                # Si rechazada/reformular
                 if result in [Result.REJECTED, Result.REFORMULATE]:
                     response_obj = lisabella.ask(question)
-                    yield json.dumps({"type": "complete", "data": response_obj}) + '\n'
-                    sys.stdout.flush()
+                    yield f"data: {json.dumps({'type': 'complete', 'data': response_obj})}\n\n"
+                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
                     return
                 
-                # Aprobada → enviar metadata
+                # Aprobada - enviar metadata
                 domain = classification.get("domain", "medicina general")
                 special_cmd = classification.get("special_command")
                 
-                yield json.dumps({
-                    "type": "metadata",
-                    "domain": domain,
-                    "special_command": special_cmd,
-                    "status": "approved"
-                }) + '\n'
-                sys.stdout.flush()
+                yield f"data: {json.dumps({'type': 'metadata', 'domain': domain, 'special_command': special_cmd, 'status': 'approved'})}\n\n"
                 
-                # 🚀 STREAMING de tokens
+                # Streaming de tokens
                 buffer = ""
                 chunk_index = 0
-                stream_done = False
-                last_activity = time.time()
-                CHUNK_SIZE = 200  # Chunks más grandes para menos overhead
+                CHUNK_SIZE = 200
                 
                 for token in lisabella.mistral.generate_stream(question, domain, special_cmd):
-                    # Detectar señales de finalización
+                    # Detectar finalización
                     if token in ["__STREAM_DONE__", "[STREAM_COMPLETE]"]:
                         if buffer:
-                            yield json.dumps({
-                                "type": "chunk",
-                                "index": chunk_index,
-                                "content": buffer
-                            }) + '\n'
-                            sys.stdout.flush()
-                        
-                        yield json.dumps({"type": "done"}) + '\n'
-                        sys.stdout.flush()
-                        print(f"✅ STREAM [{datetime.now()}] Completado correctamente")
-                        stream_done = True
+                            yield f"data: {json.dumps({'type': 'chunk', 'index': chunk_index, 'content': buffer})}\n\n"
+                        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                        print(f"✅ SSE [{datetime.now()}] Completado correctamente")
                         return
                     
                     buffer += token
                     
-                    # Enviar chunks cuando sea razonable
+                    # Enviar chunks
                     if len(buffer) >= CHUNK_SIZE or token in ['.', '\n\n', '\n##']:
-                        yield json.dumps({
-                            "type": "chunk",
-                            "index": chunk_index,
-                            "content": buffer
-                        }) + '\n'
-                        sys.stdout.flush()
+                        yield f"data: {json.dumps({'type': 'chunk', 'index': chunk_index, 'content': buffer})}\n\n"
                         chunk_index += 1
                         buffer = ""
-                        last_activity = time.time()
                 
-                # Fallback: enviar buffer final si quedó algo
-                if not stream_done:
-                    if buffer:
-                        yield json.dumps({
-                            "type": "chunk",
-                            "index": chunk_index,
-                            "content": buffer
-                        }) + '\n'
-                        sys.stdout.flush()
-                    
-                    yield json.dumps({"type": "done"}) + '\n'
-                    sys.stdout.flush()
-                    print(f"⚠️ STREAM [{datetime.now()}] Completado sin señal explícita")
+                # Fallback
+                if buffer:
+                    yield f"data: {json.dumps({'type': 'chunk', 'index': chunk_index, 'content': buffer})}\n\n"
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                print(f"⚠️ SSE [{datetime.now()}] Completado sin señal explícita")
                 
             except Exception as e:
-                print(f"❌ Error en stream: {str(e)}")
+                print(f"❌ Error en SSE: {str(e)}")
                 import traceback
                 traceback.print_exc()
-                yield json.dumps({
-                    "type": "error",
-                    "message": f"Error: {str(e)[:150]}"
-                }) + '\n'
-                sys.stdout.flush()
+                yield f"data: {json.dumps({'type': 'error', 'message': f'Error: {str(e)[:150]}'})}\n\n"
         
         return Response(
             generate(),
-            mimetype='application/x-ndjson',
+            mimetype='text/event-stream',
             headers={
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
                 'X-Accel-Buffering': 'no',
-                'Connection': 'keep-alive',
-                'Content-Type': 'application/x-ndjson; charset=utf-8'
+                'Connection': 'keep-alive'
             }
         )
         
@@ -205,7 +166,7 @@ def health():
     return jsonify({
         "status": status,
         "message": "Lisabella funcionando" if lisabella else "Sistema no inicializado",
-        "version": "1.2-render-optimized",
+        "version": "1.3-sse-optimized",
         "timestamp": str(datetime.now())
     }), 200 if lisabella else 500
 
@@ -221,10 +182,10 @@ def home():
             "message": str(e),
             "endpoints": {
                 "/ask": "POST - Consultar (legacy)",
-                "/ask_stream": "POST - Consultar con streaming",
+                "/ask_stream": "POST - Consultar con SSE streaming",
                 "/health": "GET - Estado"
             }
-        }), 404
+        }, 404
 
 
 if __name__ == '__main__':
