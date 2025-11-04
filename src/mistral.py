@@ -632,5 +632,3 @@ Lo siento, he alcanzado el límite de consultas por minuto con el proveedor de i
 - Este es un límite técnico del servicio, no un error de Lisabella
 
 **Nota:** Estamos trabajando para mejorar la capacidad del sistema."""
-
-**Nota:** Estamos trabajando para mejorar la capacidad del sistema."""
