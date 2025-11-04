@@ -50,38 +50,67 @@ class MistralClient:
             )
             
             chunk_count = 0
+            accumulated_content = ""  # ✅ Acumular para detectar errores
+            
             for chunk in stream:
                 if hasattr(chunk, 'data') and chunk.data and hasattr(chunk.data, 'choices'):
                     if chunk.data.choices and len(chunk.data.choices) > 0:
                         delta = chunk.data.choices[0].delta.content
                         if delta:
                             chunk_count += 1
+                            accumulated_content += delta
+                            
+                            # ✅ DETECCIÓN TEMPRANA: Si los primeros chunks contienen error
+                            if chunk_count <= 3 and len(accumulated_content) < 200:
+                                error_lower = accumulated_content.lower()
+                                if any(phrase in error_lower for phrase in [
+                                    "rate limit", "rate_limit", "too many requests",
+                                    "quota exceeded", "temporarily unavailable",
+                                    "system overloaded"
+                                ]):
+                                    print(f"🚨 ERROR DETECTADO EN STREAM: {accumulated_content[:150]}")
+                                    yield "\n\n⏳ **Sistema Temporalmente Saturado**\n\n"
+                                    yield "Mistral AI está experimentando alta demanda en este momento.\n\n"
+                                    yield "**Por favor:**\n"
+                                    yield "• Espera 1-2 minutos\n"
+                                    yield "• Intenta con una pregunta más breve\n"
+                                    yield "• O reformula tu consulta\n"
+                                    yield "__STREAM_DONE__"
+                                    return
+                            
                             yield delta
             
             print(f"✅ Stream completado naturalmente. Total chunks: {chunk_count}")
+            
+            # ✅ VALIDACIÓN FINAL: Si recibimos MUY poco contenido, algo salió mal
+            if chunk_count > 0 and len(accumulated_content) < 100:
+                print(f"⚠️ Respuesta sospechosamente corta ({len(accumulated_content)} chars): {accumulated_content}")
+                # No enviar DONE si la respuesta es sospechosa
+                yield "\n\n⚠️ **Respuesta incompleta detectada**\n\nPor favor, intenta nuevamente."
+            
             yield "__STREAM_DONE__"
                         
         except Exception as e:
             error_str = str(e)
             error_lower = error_str.lower()
             
-            # ✅ DETECCIÓN PRECISA de rate limit (solo códigos HTTP y mensajes explícitos)
+            print(f"❌ EXCEPCIÓN EN STREAM: {error_str[:300]}")
+            
+            # ✅ DETECCIÓN PRECISA de rate limit
             is_rate_limit = (
                 "429" in error_str or 
-                "rate_limit" in error_lower or  # Con guion bajo
-                "rate limit" in error_lower or  # Con espacio
+                "rate_limit" in error_lower or
+                "rate limit" in error_lower or
                 "too many requests" in error_lower or
                 "quota exceeded" in error_lower
             )
             
-            # ✅ Detección de timeout
             is_timeout = (
                 "timeout" in error_lower or
                 "timed out" in error_lower or
                 isinstance(e, TimeoutError)
             )
             
-            # ✅ Detección de autenticación
             is_auth_error = (
                 "401" in error_str or
                 "403" in error_str or
@@ -90,18 +119,16 @@ class MistralClient:
                 "api key" in error_lower
             )
             
-            # ✅ Respuestas específicas
             if is_rate_limit:
-                print(f"⏳ Rate limit real detectado: {error_str[:100]}")
-                yield "\n\n⏳ **Sistema temporalmente saturado**\n\nEspera 1-2 minutos e intenta nuevamente."
+                print(f"⏳ Rate limit REAL detectado vía excepción")
+                yield "\n\n⏳ **Sistema Temporalmente Saturado**\n\nEspera 1-2 minutos e intenta nuevamente."
             elif is_timeout:
-                print(f"⏱️ Timeout detectado: {error_str[:100]}")
+                print(f"⏱️ Timeout detectado")
                 yield "\n\n⏱️ **Tiempo de espera agotado**\n\nLa consulta tomó demasiado tiempo. Intenta con una pregunta más específica."
             elif is_auth_error:
-                print(f"🔐 Error de autenticación: {error_str[:100]}")
-                yield "\n\n⚠️ **Error de autenticación**\n\nLa API key no es válida."
+                print(f"🔐 Error de autenticación")
+                yield "\n\n⚠️ **Error de autenticación**\n\nLa API key no es válida. Contacta al administrador."
             else:
-                print(f"❌ Error inesperado en stream: {error_str[:200]}")
                 yield f"\n\n⚠️ **Error del sistema**\n\n{error_str[:200]}"
             
             yield "__STREAM_DONE__"
@@ -120,6 +147,23 @@ class MistralClient:
                         max_tokens=4000
                     )
                     result = future.result(timeout=self.api_timeout)
+                
+                # ✅ VALIDACIÓN DE RESPUESTA
+                if result and len(result) < 100:
+                    result_lower = result.lower()
+                    if any(phrase in result_lower for phrase in [
+                        "rate limit", "rate_limit", "too many requests",
+                        "quota", "temporarily unavailable"
+                    ]):
+                        print(f"🚨 Rate limit detectado en respuesta: {result[:150]}")
+                        if attempt < self.max_retries - 1:
+                            retry_delay = self.base_retry_delay * (2 ** attempt)
+                            print(f"⏳ Reintentando en {retry_delay}s...")
+                            time.sleep(retry_delay)
+                            continue
+                        else:
+                            return self._generate_rate_limit_message()
+                
                 return result
 
             except TimeoutError:
@@ -140,7 +184,6 @@ La consulta tomó demasiado tiempo en procesarse.
                 error_str = str(e)
                 error_lower = error_str.lower()
 
-                # ✅ DETECCIÓN PRECISA (igual que en stream)
                 is_rate_limit = (
                     "429" in error_str or 
                     "rate_limit" in error_lower or
@@ -165,7 +208,7 @@ La consulta tomó demasiado tiempo en procesarse.
                 )
 
                 if is_rate_limit:
-                    print(f"⏳ Rate limit real detectado: {error_str[:100]}")
+                    print(f"⏳ Rate limit detectado vía excepción")
                     if attempt < self.max_retries - 1:
                         retry_delay = self.base_retry_delay * (2 ** attempt)
                         print(f"⏳ Reintentando en {retry_delay}s...")
@@ -175,13 +218,13 @@ La consulta tomó demasiado tiempo en procesarse.
                         return self._generate_rate_limit_message()
 
                 elif is_auth_error:
-                    print(f"🔐 Error de autenticación: {error_str[:100]}")
+                    print(f"🔐 Error de autenticación")
                     return """⚠️ **Error de Autenticación**
 La API key de Mistral no es válida o ha expirado.
 **Contacta al administrador del sistema.**"""
 
                 elif is_network_error:
-                    print(f"🔌 Error de red: {error_str[:100]}")
+                    print(f"🔌 Error de red")
                     if attempt < self.max_retries - 1:
                         print(f"🔌 Reintentando conexión...")
                         time.sleep(2)
@@ -587,5 +630,7 @@ Lo siento, he alcanzado el límite de consultas por minuto con el proveedor de i
 - Espera **1-2 minutos** e intenta nuevamente
 - Si el problema persiste, intenta con una pregunta más breve
 - Este es un límite técnico del servicio, no un error de Lisabella
+
+**Nota:** Estamos trabajando para mejorar la capacidad del sistema."""
 
 **Nota:** Estamos trabajando para mejorar la capacidad del sistema."""
