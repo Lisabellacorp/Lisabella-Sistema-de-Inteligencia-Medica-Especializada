@@ -11,7 +11,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from src.main import Lisabella
 from src.wrapper import Result
 
-app = Flask(__name__, static_folder='templates', static_url_path='')
+# ✅ CORREGIDO: Configuración correcta de static folder
+app = Flask(__name__, static_folder='static', template_folder='templates')
 
 CORS(app, resources={
     r"/*": {
@@ -117,14 +118,27 @@ def ask_stream():
                 }) + '\n'
                 sys.stdout.flush()
                 
-                # 🚀 STREAMING de tokens
+                # ✅ CORREGIDO: STREAMING con heartbeat para evitar timeout
                 buffer = ""
                 chunk_index = 0
                 stream_done = False
-                last_activity = time.time()
                 CHUNK_SIZE = 200  # Chunks más grandes para menos overhead
-                
+
+                PING_INTERVAL = 10  # segundos entre pings
+                last_ping = time.time()
+
                 for token in lisabella.mistral.generate_stream(question, domain, special_cmd):
+                    now = time.time()
+                    # ✅ HEARTBEAT: Enviar "ping" si no hubo actividad
+                    if now - last_ping >= PING_INTERVAL:
+                        try:
+                            yield json.dumps({"type": "ping", "timestamp": str(datetime.now())}) + '\n'
+                            sys.stdout.flush()
+                        except Exception:
+                            # No romper por fallo de ping
+                            pass
+                        last_ping = now
+
                     # Detectar señales de finalización
                     if token in ["__STREAM_DONE__", "[STREAM_COMPLETE]"]:
                         if buffer:
@@ -134,16 +148,16 @@ def ask_stream():
                                 "content": buffer
                             }) + '\n'
                             sys.stdout.flush()
-                        
+
                         yield json.dumps({"type": "done"}) + '\n'
                         sys.stdout.flush()
                         print(f"✅ STREAM [{datetime.now()}] Completado correctamente")
                         stream_done = True
                         return
-                    
+
+                    # Normal: acumular token en buffer y emitir chunks
                     buffer += token
-                    
-                    # Enviar chunks cuando sea razonable
+
                     if len(buffer) >= CHUNK_SIZE or token in ['.', '\n\n', '\n##']:
                         yield json.dumps({
                             "type": "chunk",
@@ -153,7 +167,7 @@ def ask_stream():
                         sys.stdout.flush()
                         chunk_index += 1
                         buffer = ""
-                        last_activity = time.time()
+                        last_ping = time.time()  # Reset ping timer en actividad real
                 
                 # Fallback: enviar buffer final si quedó algo
                 if not stream_done:
@@ -205,7 +219,7 @@ def health():
     return jsonify({
         "status": status,
         "message": "Lisabella funcionando" if lisabella else "Sistema no inicializado",
-        "version": "1.2-render-optimized",
+        "version": "1.3-heartbeat-fixed",
         "timestamp": str(datetime.now())
     }), 200 if lisabella else 500
 
