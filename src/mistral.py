@@ -3,7 +3,6 @@ import time
 import re
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
-# ✅ IMPORTACIÓN SEGURA PARA RENDER
 try:
     from mistralai import Mistral
     MISTRAL_AVAILABLE = True
@@ -11,7 +10,6 @@ except ImportError:
     MISTRAL_AVAILABLE = False
     print("❌ Mistral AI no disponible")
 
-# ✅ CONFIGURACIÓN SEGURA
 try:
     from src.config import MISTRAL_KEY, MISTRAL_MODEL, MISTRAL_TEMP
 except ImportError:
@@ -36,9 +34,7 @@ class MistralClient:
         self.api_timeout = 90
 
     def generate_stream(self, question, domain, special_command=None):
-        """
-        🚀 Genera respuesta con STREAMING REAL de Mistral.
-        """
+        """🚀 Genera respuesta con STREAMING REAL de Mistral."""
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
         
@@ -53,7 +49,6 @@ class MistralClient:
                 max_tokens=4000
             )
             
-            # ✅ CORREGIDO: Procesar TODO el stream hasta el final natural
             chunk_count = 0
             for chunk in stream:
                 if hasattr(chunk, 'data') and chunk.data and hasattr(chunk.data, 'choices'):
@@ -64,19 +59,50 @@ class MistralClient:
                             yield delta
             
             print(f"✅ Stream completado naturalmente. Total chunks: {chunk_count}")
-            
-            # ✅ CORREGIDO: Solo enviar señal cuando el stream termine naturalmente
             yield "__STREAM_DONE__"
                         
         except Exception as e:
-            error_str = str(e).lower()
+            error_str = str(e)
+            error_lower = error_str.lower()
             
-            if "429" in str(e) or "rate" in error_str:
+            # ✅ DETECCIÓN PRECISA de rate limit (solo códigos HTTP y mensajes explícitos)
+            is_rate_limit = (
+                "429" in error_str or 
+                "rate_limit" in error_lower or  # Con guion bajo
+                "rate limit" in error_lower or  # Con espacio
+                "too many requests" in error_lower or
+                "quota exceeded" in error_lower
+            )
+            
+            # ✅ Detección de timeout
+            is_timeout = (
+                "timeout" in error_lower or
+                "timed out" in error_lower or
+                isinstance(e, TimeoutError)
+            )
+            
+            # ✅ Detección de autenticación
+            is_auth_error = (
+                "401" in error_str or
+                "403" in error_str or
+                "authentication" in error_lower or
+                "unauthorized" in error_lower or
+                "api key" in error_lower
+            )
+            
+            # ✅ Respuestas específicas
+            if is_rate_limit:
+                print(f"⏳ Rate limit real detectado: {error_str[:100]}")
                 yield "\n\n⏳ **Sistema temporalmente saturado**\n\nEspera 1-2 minutos e intenta nuevamente."
-            elif "authentication" in error_str:
+            elif is_timeout:
+                print(f"⏱️ Timeout detectado: {error_str[:100]}")
+                yield "\n\n⏱️ **Tiempo de espera agotado**\n\nLa consulta tomó demasiado tiempo. Intenta con una pregunta más específica."
+            elif is_auth_error:
+                print(f"🔐 Error de autenticación: {error_str[:100]}")
                 yield "\n\n⚠️ **Error de autenticación**\n\nLa API key no es válida."
             else:
-                yield f"\n\n⚠️ **Error del sistema**\n\n{str(e)[:200]}"
+                print(f"❌ Error inesperado en stream: {error_str[:200]}")
+                yield f"\n\n⚠️ **Error del sistema**\n\n{error_str[:200]}"
             
             yield "__STREAM_DONE__"
 
@@ -102,28 +128,62 @@ class MistralClient:
                     time.sleep(self.base_retry_delay)
                     continue
                 else:
-                    return self._generate_rate_limit_message()
+                    return """⏱️ **Tiempo de Espera Agotado**
+La consulta tomó demasiado tiempo en procesarse.
+
+**Intenta:**
+- Reformular tu pregunta de forma más específica
+- Dividir la consulta en partes más pequeñas
+- Esperar unos segundos y volver a intentar"""
 
             except Exception as e:
-                error_str = str(e).lower()
+                error_str = str(e)
+                error_lower = error_str.lower()
 
-                if "429" in str(e) or "rate" in error_str or "capacity" in error_str or "tier" in error_str:
+                # ✅ DETECCIÓN PRECISA (igual que en stream)
+                is_rate_limit = (
+                    "429" in error_str or 
+                    "rate_limit" in error_lower or
+                    "rate limit" in error_lower or
+                    "too many requests" in error_lower or
+                    "quota exceeded" in error_lower or
+                    "capacity" in error_lower or
+                    "tier" in error_lower
+                )
+                
+                is_auth_error = (
+                    "401" in error_str or
+                    "403" in error_str or
+                    "authentication" in error_lower or
+                    "api key" in error_lower or
+                    "unauthorized" in error_lower
+                )
+                
+                is_network_error = (
+                    "network" in error_lower or
+                    "connection" in error_lower
+                )
+
+                if is_rate_limit:
+                    print(f"⏳ Rate limit real detectado: {error_str[:100]}")
                     if attempt < self.max_retries - 1:
                         retry_delay = self.base_retry_delay * (2 ** attempt)
-                        print(f"⏳ Rate limit detectado. Reintentando en {retry_delay}s...")
+                        print(f"⏳ Reintentando en {retry_delay}s...")
                         time.sleep(retry_delay)
                         continue
                     else:
                         return self._generate_rate_limit_message()
 
-                elif "authentication" in error_str or "api key" in error_str or "unauthorized" in error_str:
+                elif is_auth_error:
+                    print(f"🔐 Error de autenticación: {error_str[:100]}")
                     return """⚠️ **Error de Autenticación**
 La API key de Mistral no es válida o ha expirado.
 **Contacta al administrador del sistema.**"""
 
-                elif "network" in error_str or "connection" in error_str:
+                elif is_network_error:
+                    print(f"🔌 Error de red: {error_str[:100]}")
                     if attempt < self.max_retries - 1:
-                        print(f"🔌 Error de conexión. Reintentando...")
+                        print(f"🔌 Reintentando conexión...")
                         time.sleep(2)
                         continue
                     else:
@@ -132,10 +192,12 @@ No se pudo conectar con el servicio de IA.
 **Por favor, verifica tu conexión a internet e intenta nuevamente.**"""
 
                 else:
-                    print(f"❌ Error inesperado: {str(e)}")
+                    print(f"❌ Error inesperado: {error_str[:200]}")
                     return f"""⚠️ **Error del Sistema**
 Ha ocurrido un error inesperado al procesar tu pregunta.
-**Detalles técnicos:** {str(e)[:200]}
+
+**Detalles técnicos:** {error_str[:200]}
+
 Por favor, intenta reformular tu pregunta o contacta al soporte."""
 
         return self._generate_rate_limit_message()
