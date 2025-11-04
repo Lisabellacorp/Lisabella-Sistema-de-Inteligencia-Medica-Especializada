@@ -611,6 +611,8 @@
         const BACKEND_URL = 'https://lisabella.onrender.com';
 
         let userHasScrolled = false;
+        let currentStreamingBubble = null;
+        let accumulatedContent = '';
 
         messagesArea.addEventListener('scroll', () => {
             const isAtBottom = messagesArea.scrollHeight - messagesArea.scrollTop <= messagesArea.clientHeight + 100;
@@ -648,6 +650,8 @@
             btnText.innerHTML = '<span class="loading-spinner"></span>';
 
             userHasScrolled = false;
+            currentStreamingBubble = null;
+            accumulatedContent = '';
 
             try {
                 await callBackendStream(question);
@@ -689,18 +693,16 @@
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
-            let currentBubble = null;
-            let fullContent = '';
             let streamCompleted = false;
             let chunkCount = 0;
             let lastUpdateTime = Date.now();
             const TIMEOUT_MS = 30000;
 
             const timeoutCheck = setInterval(() => {
-                if (!streamCompleted && currentBubble && (Date.now() - lastUpdateTime > TIMEOUT_MS)) {
+                if (!streamCompleted && currentStreamingBubble && (Date.now() - lastUpdateTime > TIMEOUT_MS)) {
                     console.warn('⚠️ Stream timeout detectado, finalizando...');
                     clearInterval(timeoutCheck);
-                    finalizeStreamingBubble(currentBubble, true);
+                    finalizeStreamingBubble(true);
                     streamCompleted = true;
                 }
             }, 5000);
@@ -733,12 +735,16 @@
                             }
                             else if (data.type === 'init') {
                                 console.log('🎬 Iniciando burbuja de streaming');
-                                currentBubble = createStreamingBubble();
-                                fullContent = '';
+                                currentStreamingBubble = createStreamingBubble();
+                                accumulatedContent = '';
                                 chunkCount = 0;
                             }
+                            else if (data.type === 'metadata') {
+                                console.log('📊 Metadata recibida:', data.domain);
+                                // Podemos usar esta info si necesitamos mostrar algo específico
+                            }
                             else if (data.type === 'chunk') {
-                                if (currentBubble) {
+                                if (currentStreamingBubble) {
                                     chunkCount++;
                                     
                                     let cleanContent = data.content;
@@ -753,14 +759,14 @@
                                     }
                                     
                                     if (cleanContent) {
-                                        fullContent += cleanContent;
+                                        accumulatedContent += cleanContent;
                                         console.log(`📝 Chunk ${chunkCount} (${cleanContent.length} chars)`);
-                                        updateStreamingBubble(currentBubble, formatMarkdown(fullContent));
+                                        updateStreamingBubble(formatMarkdown(accumulatedContent));
                                     }
                                     
                                     if (hasEndSignal && !streamCompleted) {
                                         clearInterval(timeoutCheck);
-                                        finalizeStreamingBubble(currentBubble, true);
+                                        finalizeStreamingBubble(true);
                                         streamCompleted = true;
                                         return;
                                     }
@@ -768,12 +774,16 @@
                             }
                             else if (data.type === 'done') {
                                 console.log('✅ Señal done recibida');
-                                if (currentBubble && !streamCompleted) {
+                                if (currentStreamingBubble && !streamCompleted) {
                                     clearInterval(timeoutCheck);
-                                    finalizeStreamingBubble(currentBubble, true);
+                                    finalizeStreamingBubble(true);
                                     streamCompleted = true;
                                 }
                                 return;
+                            }
+                            else if (data.type === 'ping') {
+                                console.log('💓 Ping recibido - conexión activa');
+                                // Ignorar pings, solo mantener conexión viva
                             }
                             else if (data.type === 'error') {
                                 console.error('❌ Error del servidor:', data.message);
@@ -787,17 +797,17 @@
                     }
                 }
 
-                if (currentBubble && !streamCompleted) {
+                if (currentStreamingBubble && !streamCompleted) {
                     console.log('🔚 Finalizando burbuja (stream terminó sin señal explícita)');
                     clearInterval(timeoutCheck);
-                    finalizeStreamingBubble(currentBubble, true);
+                    finalizeStreamingBubble(true);
                     streamCompleted = true;
                 }
             } catch (error) {
                 clearInterval(timeoutCheck);
                 console.error('💥 Error en streaming:', error);
-                if (currentBubble && !streamCompleted) {
-                    finalizeStreamingBubble(currentBubble, true);
+                if (currentStreamingBubble && !streamCompleted) {
+                    finalizeStreamingBubble(true);
                 }
                 throw error;
             }
@@ -837,12 +847,14 @@
             return bubble;
         }
 
-        function updateStreamingBubble(bubble, content) {
-            // ✅ CORREGIDO: Actualizar contenido directamente
-            bubble.innerHTML = content;
+        function updateStreamingBubble(content) {
+            if (!currentStreamingBubble) return;
+            
+            // ✅ CORREGIDO: Actualizar contenido MANTENIENDO lo anterior
+            currentStreamingBubble.innerHTML = content;
             
             // Envolver tablas inmediatamente
-            const tables = bubble.querySelectorAll('table');
+            const tables = currentStreamingBubble.querySelectorAll('table');
             tables.forEach(table => {
                 if (!table.parentElement.classList.contains('table-wrapper')) {
                     const wrapper = document.createElement('div');
@@ -859,29 +871,31 @@
             }
         }
 
-        function finalizeStreamingBubble(bubble, success = true) {
+        function finalizeStreamingBubble(success = true) {
             console.log('🏁 Finalizando burbuja. Éxito:', success);
             
-            if (success) {
+            if (success && currentStreamingBubble) {
                 const badge = document.createElement('span');
                 badge.className = 'status-badge status-approved';
                 badge.textContent = '✅ Respuesta Procesada';
                 
-                bubble.insertBefore(badge, bubble.firstChild);
-                bubble.insertBefore(document.createElement('br'), badge.nextSibling);
+                currentStreamingBubble.insertBefore(badge, currentStreamingBubble.firstChild);
+                currentStreamingBubble.insertBefore(document.createElement('br'), badge.nextSibling);
                 console.log('✅ Badge de éxito agregado');
             }
             
             // Asegurar que todas las tablas tengan wrapper
-            const tables = bubble.querySelectorAll('table');
-            tables.forEach(table => {
-                if (!table.parentElement.classList.contains('table-wrapper')) {
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'table-wrapper';
-                    table.parentNode.insertBefore(wrapper, table);
-                    wrapper.appendChild(table);
-                }
-            });
+            if (currentStreamingBubble) {
+                const tables = currentStreamingBubble.querySelectorAll('table');
+                tables.forEach(table => {
+                    if (!table.parentElement.classList.contains('table-wrapper')) {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'table-wrapper';
+                        table.parentNode.insertBefore(wrapper, table);
+                        wrapper.appendChild(table);
+                    }
+                });
+            }
             
             requestAnimationFrame(() => {
                 messagesArea.scrollTop = messagesArea.scrollHeight;
