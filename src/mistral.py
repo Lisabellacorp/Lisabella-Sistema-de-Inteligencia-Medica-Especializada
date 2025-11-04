@@ -38,7 +38,6 @@ class MistralClient:
     def generate_stream(self, question, domain, special_command=None):
         """
         🚀 Genera respuesta con STREAMING REAL de Mistral.
-        Max tokens: 4000 (óptimo para respuestas médicas completas)
         """
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
@@ -51,16 +50,22 @@ class MistralClient:
                     {"role": "user", "content": user_msg}
                 ],
                 temperature=self.temp,
-                max_tokens=4000  # ⬅️ CORREGIDO: De 16000 a 4000
+                max_tokens=4000
             )
             
+            # ✅ CORREGIDO: Procesar TODO el stream hasta el final natural
+            chunk_count = 0
             for chunk in stream:
-                if chunk.data.choices:
-                    delta = chunk.data.choices[0].delta.content
-                    if delta:
-                        yield delta
+                if hasattr(chunk, 'data') and chunk.data and hasattr(chunk.data, 'choices'):
+                    if chunk.data.choices and len(chunk.data.choices) > 0:
+                        delta = chunk.data.choices[0].delta.content
+                        if delta:
+                            chunk_count += 1
+                            yield delta
             
-            # Señal de finalización
+            print(f"✅ Stream completado naturalmente. Total chunks: {chunk_count}")
+            
+            # ✅ CORREGIDO: Solo enviar señal cuando el stream termine naturalmente
             yield "__STREAM_DONE__"
                         
         except Exception as e:
@@ -86,7 +91,7 @@ class MistralClient:
                         question,
                         domain,
                         special_command,
-                        max_tokens=4000  # ⬅️ CORREGIDO: De 16000 a 4000
+                        max_tokens=4000
                     )
                     result = future.result(timeout=self.api_timeout)
                 return result
@@ -147,7 +152,7 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
                 {"role": "user", "content": user_msg}
             ],
             temperature=self.temp,
-            max_tokens=max_tokens  # ⬅️ CORREGIDO: Usa 4000 por default
+            max_tokens=max_tokens
         )
 
         return response.choices[0].message.content
