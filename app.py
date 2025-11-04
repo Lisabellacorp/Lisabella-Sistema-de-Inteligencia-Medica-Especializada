@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, render_template
 from flask_cors import CORS
 import os
 import sys
@@ -11,8 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from src.main import Lisabella
 from src.wrapper import Result
 
-# ✅ CORREGIDO: Configuración correcta de static folder
-app = Flask(__name__, static_folder='static', template_folder='templates')
+app = Flask(__name__, template_folder='templates', static_folder='static')
 
 CORS(app, resources={
     r"/*": {
@@ -32,7 +31,6 @@ except Exception as e:
 
 @app.route('/ask', methods=['POST', 'OPTIONS'])
 def ask():
-    """Endpoint legacy (sin streaming)"""
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -66,7 +64,6 @@ def ask():
 
 @app.route('/ask_stream', methods=['POST', 'OPTIONS'])
 def ask_stream():
-    """🚀 Endpoint con streaming optimizado para Render"""
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -86,27 +83,22 @@ def ask_stream():
         print(f"📥 STREAM [{datetime.now()}] Procesando: {question[:50]}...")
         
         def generate():
-            """Generator optimizado para evitar timeout de Render"""
             try:
-                # ✅ RESPUESTA INMEDIATA (antes de 30s de Render)
                 yield json.dumps({
                     "type": "init",
                     "message": "🔍 Analizando tu pregunta médica..."
                 }) + '\n'
                 sys.stdout.flush()
                 
-                # Clasificar pregunta (rápido, <2s)
                 classification = lisabella.wrapper.classify(question)
                 result = classification["result"]
                 
-                # Si rechazada/reformular → enviar completo
                 if result in [Result.REJECTED, Result.REFORMULATE]:
                     response_obj = lisabella.ask(question)
                     yield json.dumps({"type": "complete", "data": response_obj}) + '\n'
                     sys.stdout.flush()
                     return
                 
-                # Aprobada → enviar metadata
                 domain = classification.get("domain", "medicina general")
                 special_cmd = classification.get("special_command")
                 
@@ -118,28 +110,23 @@ def ask_stream():
                 }) + '\n'
                 sys.stdout.flush()
                 
-                # ✅ CORREGIDO: STREAMING con heartbeat para evitar timeout
                 buffer = ""
                 chunk_index = 0
                 stream_done = False
-                CHUNK_SIZE = 200  # Chunks más grandes para menos overhead
-
-                PING_INTERVAL = 10  # segundos entre pings
+                CHUNK_SIZE = 200
+                PING_INTERVAL = 10
                 last_ping = time.time()
 
                 for token in lisabella.mistral.generate_stream(question, domain, special_cmd):
                     now = time.time()
-                    # ✅ HEARTBEAT: Enviar "ping" si no hubo actividad
                     if now - last_ping >= PING_INTERVAL:
                         try:
                             yield json.dumps({"type": "ping", "timestamp": str(datetime.now())}) + '\n'
                             sys.stdout.flush()
                         except Exception:
-                            # No romper por fallo de ping
                             pass
                         last_ping = now
 
-                    # Detectar señales de finalización
                     if token in ["__STREAM_DONE__", "[STREAM_COMPLETE]"]:
                         if buffer:
                             yield json.dumps({
@@ -155,7 +142,6 @@ def ask_stream():
                         stream_done = True
                         return
 
-                    # Normal: acumular token en buffer y emitir chunks
                     buffer += token
 
                     if len(buffer) >= CHUNK_SIZE or token in ['.', '\n\n', '\n##']:
@@ -167,9 +153,8 @@ def ask_stream():
                         sys.stdout.flush()
                         chunk_index += 1
                         buffer = ""
-                        last_ping = time.time()  # Reset ping timer en actividad real
+                        last_ping = time.time()
                 
-                # Fallback: enviar buffer final si quedó algo
                 if not stream_done:
                     if buffer:
                         yield json.dumps({
@@ -214,7 +199,6 @@ def ask_stream():
 
 @app.route('/health', methods=['GET'])
 def health():
-    """Health check"""
     status = "ok" if lisabella else "error"
     return jsonify({
         "status": status,
@@ -226,16 +210,15 @@ def health():
 
 @app.route('/', methods=['GET'])
 def home():
-    """Servir HTML"""
     try:
-        return app.send_static_file('lisabella.html')
+        return render_template('lisabella.html')
     except Exception as e:
         return jsonify({
-            "error": "Frontend no encontrado",
+            "error": "Frontend no encontrado en templates/",
             "message": str(e),
             "endpoints": {
                 "/ask": "POST - Consultar (legacy)",
-                "/ask_stream": "POST - Consultar con streaming",
+                "/ask_stream": "POST - Consultar con streaming", 
                 "/health": "GET - Estado"
             }
         }), 404
