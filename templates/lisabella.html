@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lisabella - Asistente Médico IA</title>
+    <meta name="description" content="Sistema de Inteligencia Médica Especializada validado con estándares internacionales">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -27,6 +28,7 @@
         .header {
             background: rgba(255,255,255,0.98);
             backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
             box-shadow: 0 4px 25px rgba(0,0,0,0.15);
             border-bottom: 3px solid var(--uas-dorado);
             position: sticky;
@@ -72,7 +74,7 @@
             font-weight: 500;
             line-height: 1.4;
         }
-        .main-container {
+        main.main-container {
             flex: 1;
             max-width: var(--max-width);
             width: 100%;
@@ -85,6 +87,7 @@
         .manifesto-box {
             background: linear-gradient(135deg, rgba(0,63,127,0.95) 0%, rgba(74,144,226,0.95) 100%);
             backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
             border-left: 6px solid var(--uas-dorado);
             padding: 1.5rem 2rem;
             border-radius: 15px;
@@ -119,6 +122,7 @@
             flex: 1;
             background: rgba(255,255,255,0.98);
             backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
             border-radius: 20px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.15);
             overflow: hidden;
@@ -171,6 +175,7 @@
             word-wrap: break-word;
             word-break: break-word;
             line-height: 1.6;
+            transition: all 0.3s ease;
         }
         .message.user .message-bubble {
             background: linear-gradient(45deg, var(--uas-azul), var(--uas-azul-claro));
@@ -408,6 +413,7 @@
         .footer {
             background: rgba(255,255,255,0.98);
             backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
             border-top: 4px solid var(--uas-dorado);
             padding: 2rem;
             text-align: center;
@@ -458,7 +464,7 @@
             .title-section p {
                 font-size: 0.75rem;
             }
-            .main-container {
+            main.main-container {
                 padding: 1rem;
             }
             .manifesto-box {
@@ -469,6 +475,7 @@
             }
             .chat-container {
                 max-height: calc(100vh - 350px);
+                height: 100%;
             }
             .messages-area {
                 padding: 1rem;
@@ -488,13 +495,19 @@
                 justify-content: center;
             }
         }
+        @media (max-width: 480px) {
+            .chat-container {
+                max-height: none;
+                height: 100%;
+            }
+        }
     </style>
 </head>
 <body>
-    <header class="header">
+    <header class="header" role="banner">
         <div class="header-container">
             <div class="logo-section">
-                <div class="logo-uas">⚕️</div>
+                <div class="logo-uas" aria-label="Logo de la Universidad Autónoma de Sinaloa">⚕️</div>
                 <div class="title-section">
                     <h1>Lisabella</h1>
                     <p>Sistema de Inteligencia Médica Especializada | Validado con estándares Joint Commission, AHA/ESC, Mayo Clinic y COFEPRIS</p>
@@ -503,13 +516,13 @@
         </div>
     </header>
 
-    <div class="main-container">
+    <main class="main-container">
         <div class="manifesto-box">
             <p><strong>La excelencia en medicina exige la mejor tecnología para los mejores diagnósticos.</strong> Cada consulta merece la precisión de la evidencia más reciente, cada duda requiere la certeza de fuentes validadas. No hay lugar para la imprecisión cuando la salud de nuestros pacientes está en juego. <strong>Ciencia, rigor y compromiso inquebrantable con la vida.</strong></p>
         </div>
 
         <div class="chat-container">
-            <div class="messages-area" id="messagesArea">
+            <div class="messages-area" id="messagesArea" role="log" aria-live="polite" aria-label="Historial de conversación">
                 <div class="message bot">
                     <div class="message-bubble">
                         <strong>¡Hola! Soy Lisabella</strong><br>
@@ -568,16 +581,17 @@
                     id="questionInput" 
                     placeholder="Escribe tu pregunta médica aquí... (Shift+Enter para salto de línea)"
                     rows="1"
+                    aria-label="Escribe tu pregunta médica"
                 ></textarea>
-                <button class="send-btn" id="sendBtn" onclick="sendQuestion()">
+                <button class="send-btn" id="sendBtn" onclick="sendQuestion()" aria-label="Enviar pregunta médica">
                     <span id="btnText">Enviar</span>
-                    <i class="fas fa-paper-plane"></i>
+                    <i class="fas fa-paper-plane" aria-hidden="true"></i>
                 </button>
             </div>
         </div>
-    </div>
+    </main>
 
-    <footer class="footer">
+    <footer class="footer" role="contentinfo">
         <div class="footer-content">
             <div class="footer-credit">Con amor para mi hija 💚</div>
             <div class="footer-credit">JESÚS RAYMUNDO VEGA BONILLA</div>
@@ -614,6 +628,13 @@
                 sendQuestion();
             }
         });
+
+        // Función para sanitizar el contenido HTML
+        function sanitizeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
 
         async function sendQuestion() {
             const question = questionInput.value.trim();
@@ -909,16 +930,16 @@
 
                 if (line.match(/^#### /)) {
                     if (inList) { result += `</${listType}>`; inList = false; }
-                    result += '<h4>' + escapeHtml(line.replace(/^#### /, '')) + '</h4>';
+                    result += '<h4>' + sanitizeHtml(line.replace(/^#### /, '')) + '</h4>';
                 } else if (line.match(/^### /)) {
                     if (inList) { result += `</${listType}>`; inList = false; }
-                    result += '<h3>' + escapeHtml(line.replace(/^### /, '')) + '</h3>';
+                    result += '<h3>' + sanitizeHtml(line.replace(/^### /, '')) + '</h3>';
                 } else if (line.match(/^## /)) {
                     if (inList) { result += `</${listType}>`; inList = false; }
-                    result += '<h2>' + escapeHtml(line.replace(/^## /, '')) + '</h2>';
+                    result += '<h2>' + sanitizeHtml(line.replace(/^## /, '')) + '</h2>';
                 } else if (line.match(/^# /)) {
                     if (inList) { result += `</${listType}>`; inList = false; }
-                    result += '<h1>' + escapeHtml(line.replace(/^# /, '')) + '</h1>';
+                    result += '<h1>' + sanitizeHtml(line.replace(/^# /, '')) + '</h1>';
                 }
                 else if (line.match(/^[\-\•\*] /)) {
                     if (!inList || listType !== 'ul') {
@@ -927,7 +948,7 @@
                         inList = true;
                         listType = 'ul';
                     }
-                    result += '<li>' + escapeHtml(line.replace(/^[\-\•\*] /, '')) + '</li>';
+                    result += '<li>' + sanitizeHtml(line.replace(/^[\-\•\*] /, '')) + '</li>';
                 }
                 else if (line.match(/^\d+\. /)) {
                     if (!inList || listType !== 'ol') {
@@ -936,7 +957,7 @@
                         inList = true;
                         listType = 'ol';
                     }
-                    result += '<li>' + escapeHtml(line.replace(/^\d+\. /, '')) + '</li>';
+                    result += '<li>' + sanitizeHtml(line.replace(/^\d+\. /, '')) + '</li>';
                 }
                 else if (line.match(/^---+$/)) {
                     if (inList) { result += `</${listType}>`; inList = false; }
@@ -944,7 +965,7 @@
                 }
                 else if (line.trim()) {
                     if (inList) { result += `</${listType}>`; inList = false; }
-                    result += escapeHtml(line) + '<br>';
+                    result += sanitizeHtml(line) + '<br>';
                 } else {
                     if (inList) { result += `</${listType}>`; inList = false; }
                     result += '<br>';
@@ -964,12 +985,6 @@
                 .replace(/`(.+?)`/g, '<code>$1</code>');
 
             return result;
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
         }
 
         function buildTable(rows) {
@@ -992,7 +1007,7 @@
                 html += '<tr>';
                 cells.forEach(cell => {
                     let tag = isHeader ? 'th' : 'td';
-                    html += `<${tag}>${cell.trim()}</${tag}>`;
+                    html += `<${tag}>${sanitizeHtml(cell.trim())}</${tag}>`;
                 });
                 html += '</tr>';
 
