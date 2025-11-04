@@ -31,6 +31,7 @@ except Exception as e:
 
 @app.route('/ask', methods=['POST', 'OPTIONS'])
 def ask():
+    """Endpoint legacy (sin streaming)"""
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -64,6 +65,7 @@ def ask():
 
 @app.route('/ask_stream', methods=['POST', 'OPTIONS'])
 def ask_stream():
+    """🚀 Endpoint con streaming optimizado para Render"""
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -83,22 +85,27 @@ def ask_stream():
         print(f"📥 STREAM [{datetime.now()}] Procesando: {question[:50]}...")
         
         def generate():
+            """Generator optimizado para evitar timeout de Render"""
             try:
+                # ✅ RESPUESTA INMEDIATA (antes de 30s de Render)
                 yield json.dumps({
                     "type": "init",
                     "message": "🔍 Analizando tu pregunta médica..."
                 }) + '\n'
                 sys.stdout.flush()
                 
+                # Clasificar pregunta (rápido, <2s)
                 classification = lisabella.wrapper.classify(question)
                 result = classification["result"]
                 
+                # Si rechazada/reformular → enviar completo
                 if result in [Result.REJECTED, Result.REFORMULATE]:
                     response_obj = lisabella.ask(question)
                     yield json.dumps({"type": "complete", "data": response_obj}) + '\n'
                     sys.stdout.flush()
                     return
                 
+                # Aprobada → enviar metadata
                 domain = classification.get("domain", "medicina general")
                 special_cmd = classification.get("special_command")
                 
@@ -110,6 +117,7 @@ def ask_stream():
                 }) + '\n'
                 sys.stdout.flush()
                 
+                # ✅ STREAMING con heartbeat para evitar timeout
                 buffer = ""
                 chunk_index = 0
                 stream_done = False
@@ -119,6 +127,7 @@ def ask_stream():
 
                 for token in lisabella.mistral.generate_stream(question, domain, special_cmd):
                     now = time.time()
+                    # ✅ HEARTBEAT: Enviar "ping" si no hubo actividad
                     if now - last_ping >= PING_INTERVAL:
                         try:
                             yield json.dumps({"type": "ping", "timestamp": str(datetime.now())}) + '\n'
@@ -127,6 +136,7 @@ def ask_stream():
                             pass
                         last_ping = now
 
+                    # Detectar señales de finalización
                     if token in ["__STREAM_DONE__", "[STREAM_COMPLETE]"]:
                         if buffer:
                             yield json.dumps({
@@ -155,6 +165,7 @@ def ask_stream():
                         buffer = ""
                         last_ping = time.time()
                 
+                # Fallback: enviar buffer final si quedó algo
                 if not stream_done:
                     if buffer:
                         yield json.dumps({
@@ -199,6 +210,7 @@ def ask_stream():
 
 @app.route('/health', methods=['GET'])
 def health():
+    """Health check"""
     status = "ok" if lisabella else "error"
     return jsonify({
         "status": status,
@@ -210,6 +222,7 @@ def health():
 
 @app.route('/', methods=['GET'])
 def home():
+    """Servir HTML CORRECTAMENTE desde templates/"""
     try:
         return render_template('lisabella.html')
     except Exception as e:
@@ -222,6 +235,12 @@ def home():
                 "/health": "GET - Estado"
             }
         }), 404
+
+
+@app.route('/favicon.ico')
+def favicon():
+    """✅ Evita corte o interrupción por petición de favicon en Render"""
+    return '', 204
 
 
 if __name__ == '__main__':
