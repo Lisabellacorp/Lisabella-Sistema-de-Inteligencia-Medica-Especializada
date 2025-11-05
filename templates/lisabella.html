@@ -676,7 +676,7 @@
             let streamCompleted = false;
             let chunkCount = 0;
             let lastUpdateTime = Date.now();
-            const TIMEOUT_MS = 30000;
+            const TIMEOUT_MS = 180000;
 
             const timeoutCheck = setInterval(() => {
                 if (!streamCompleted && currentStreamingBubble && (Date.now() - lastUpdateTime > TIMEOUT_MS)) {
