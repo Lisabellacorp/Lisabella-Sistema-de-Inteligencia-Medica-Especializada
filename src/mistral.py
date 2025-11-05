@@ -24,7 +24,14 @@ class MistralClient:
             raise Exception("Mistral AI library no está instalada")
 
         if not MISTRAL_KEY:
-            raise Exception("MISTRAL_API_KEY no configurada")
+            print("⚠️ MISTRAL_API_KEY no configurada - modo desarrollo")
+            self.client = None
+            self.model = MISTRAL_MODEL
+            self.temp = MISTRAL_TEMP
+            self.max_retries = 3
+            self.base_retry_delay = 2
+            self.api_timeout = 180
+            return
 
         self.client = Mistral(api_key=MISTRAL_KEY)
         self.model = MISTRAL_MODEL
@@ -49,6 +56,11 @@ class MistralClient:
 
     def generate_stream(self, question, domain, special_command=None):
         """🚀 Genera respuesta con STREAMING REAL de Mistral."""
+        if not self.client:
+            yield "⚠️ API no configurada - modo desarrollo\n"
+            yield "__STREAM_DONE__"
+            return
+        
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
         
