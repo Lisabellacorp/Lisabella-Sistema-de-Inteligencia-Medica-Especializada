@@ -1,118 +1,68 @@
-import os
-import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
+import re
 from mistralai import Mistral
+from dotenv import load_dotenv
+import os
 
-# ================================
-# Load config / env vars
-# ================================
-try:
-    from src.config import MISTRAL_KEY, MISTRAL_MODEL, MISTRAL_TEMP
-except ImportError:
-    MISTRAL_KEY = os.environ.get("MISTRAL_API_KEY")
-    MISTRAL_MODEL = os.environ.get("MISTRAL_MODEL", "mistral-large-latest")
-    MISTRAL_TEMP = float(os.environ.get("MISTRAL_TEMP", "0.3"))
+load_dotenv()
 
-if not MISTRAL_KEY:
-    raise Exception("❌ Falta MISTRAL_API_KEY")
+IS_SAFE = True
 
-# ================================
-# Mistral Client
-# ================================
-class MistralClient:
-    def __init__(self):
-        self.client = Mistral(api_key=MISTRAL_KEY)
-        self.model = MISTRAL_MODEL
-        self.temp = MISTRAL_TEMP
-        self.max_retries = 3
-        self.retry_delay = 2
-        self.timeout = 180
+mistral_client = Mistral(api_key=os.getenv("MISTRAL_API_KEY", None))
 
-        print(f"✅ Mistral listo | Modelo: {self.model}")
+def is_legal_or_medical(input_text):
+    legal_keywords = [
+        "contrato", "ley", "demanda", "sentencia", "jurídic", "abogado", 
+        "litigio", "constitución", "normativa", "amparo"
+    ]
+    medical_keywords = [
+        "diagnóst", "tratamiento", "síntoma", "patología", "enfermedad",
+        "farmac", "cirugía", "medicina", "histología", "tejido"
+    ]
+    return any(re.search(k, input_text, re.IGNORECASE) for k in legal_keywords + medical_keywords)
 
-    # --- Logging tokens ---
-    def _log(self, p, c, domain):
-        ts = time.strftime("%Y-%m-%d %H:%M:%S")
-        total = p + c
-        print(f"📊 {ts} | {domain} | Prompt={p} | Completion={c} | Total={total}")
+def is_safe_question(input_text):
+    # Legal/medicina = lo dejamos pasar
+    if is_legal_or_medical(input_text):
+        return True
+    
+    # Preguntas abiertas tipo política actual → bloqueadas
+    politics_pattern = r"(elección|candidato|partido|votar|política)"
+    if re.search(politics_pattern, input_text, re.IGNORECASE):
+        return False
+    
+    return True
+
+def generate_stream(prompt: str, system_prompt: str = None):
+    if not IS_SAFE or is_safe_question(prompt):
         try:
-            with open("logs/token_usage.log", "a", encoding="utf-8") as f:
-                f.write(f"{ts}|{domain}|{p}|{c}|{total}\n")
-        except:
-            pass
+            stream = mistral_client.chat.stream(
+                model="mistral-large-latest",
+                messages=[
+                    {"role": "system", "content": system_prompt or "Eres un asistente útil."},
+                    {"role": "user", "content": prompt}
+                ],
+            )
 
-    # ================================
-    # STREAM MODE
-    # ================================
-    def generate_stream(self, question, domain, special=None):
-        system = self._system(domain, special)
-        user = question
+            full_text = ""
+            completion_tokens = 0
 
-        stream = self.client.chat.stream(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user}
-            ],
-            temperature=self.temp,
-            max_tokens=32000
-        )
+            for event in stream:
+                if event.type == "token":
+                    completion_tokens += 1
+                    token = event.token
+                    full_text += token
 
-        full_text = ""
-        prompt_tokens = 0
-        completion_tokens = 0
+                    # ✅ formato compatible con tu UI
+                    yield {"type": "chunk", "content": token}
 
-        for event in stream:
-            # Token event
-            if event.type == "token":
-                completion_tokens += 1
-                token = event.token
-                full_text += token
-                yield token
-            
-            # Completed event
-            elif event.type == "response.completed":
-                prompt_tokens = event.response.usage.prompt_tokens
-                completion_tokens = event.response.usage.completion_tokens
-                self._log(prompt_tokens, completion_tokens, domain)
-                yield "__STREAM_DONE__"
-                break
+            # ✅ finalizar stream
+            yield {"type": "done"}
 
-    # ================================
-    # SYNC MODE
-    # ================================
-    def generate(self, question, domain, special=None):
-        for _ in range(self.max_retries):
-            try:
-                with ThreadPoolExecutor(max_workers=1) as exe:
-                    fut = exe.submit(self._call, question, domain, special)
-                    return fut.result(timeout=self.timeout)
-            except TimeoutError:
-                time.sleep(self.retry_delay)
-        return "⏱️ Timeout, intenta de nuevo."
-
-    def _call(self, question, domain, special):
-        system = self._system(domain, special)
-
-        r = self.client.chat.complete(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": question}
-            ],
-            temperature=self.temp,
-            max_tokens=32000
-        )
-
-        u = r.usage
-        self._log(u.prompt_tokens, u.completion_tokens, domain)
-        return r.choices[0].message.content
-
-    # ================================
-    # System prompt builder
-    # ================================
-    def _system(self, domain, special):
-        base = f"Eres Lisabella, asistente médico experto. Dominio: {domain}."
-        if special:
-            base += f"\nComando: {special}"
-        return base
+        except Exception as e:
+            yield {"type": "chunk", "content": f"[Error usando Mistral: {e}]\nUsando fallback..."}
+    else:
+        # ❌ pregunta no permitida → respuesta ética
+        fallback = "Lo siento, no puedo ayudar con esa consulta."
+        for char in fallback:
+            yield {"type": "chunk", "content": char}
+        yield {"type": "done"}
