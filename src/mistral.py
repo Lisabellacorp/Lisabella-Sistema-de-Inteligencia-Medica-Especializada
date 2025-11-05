@@ -52,6 +52,14 @@ class MistralClient:
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
         
+        # ✅ Ajuste dinámico de tokens y temperatura según comando
+        if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"]:
+            max_tokens = 24000  # Notas médicas: extensas pero optimizadas
+            temperature = 0.1   # Más determinístico y rápido
+        else:
+            max_tokens = 16000  # Preguntas generales: suficiente
+            temperature = self.temp
+        
         try:
             stream = self.client.chat.stream(
                 model=self.model,
@@ -59,8 +67,8 @@ class MistralClient:
                     {"role": "system", "content": system_msg},
                     {"role": "user", "content": user_msg}
                 ],
-                temperature=self.temp,
-                max_tokens=32000  # ✅ Aumentado a 32k para respuestas médicas muy extensas
+                temperature=temperature,
+                max_tokens=max_tokens
             )
             
             chunk_count = 0
@@ -151,7 +159,13 @@ class MistralClient:
             yield "__STREAM_DONE__"
 
     def generate(self, question, domain, special_command=None):
-        """Generar respuesta COMPLETA con retry automático (32000 tokens)"""
+        """Generar respuesta COMPLETA con retry automático"""
+        
+        # ✅ Ajuste dinámico según tipo de comando
+        if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"]:
+            max_tokens = 24000
+        else:
+            max_tokens = 16000
 
         for attempt in range(self.max_retries):
             try:
@@ -161,7 +175,7 @@ class MistralClient:
                         question,
                         domain,
                         special_command,
-                        max_tokens=32000
+                        max_tokens=max_tokens
                     )
                     result = future.result(timeout=self.api_timeout)
                 
@@ -259,10 +273,16 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
 
         return self._generate_rate_limit_message()
 
-    def _call_mistral_api(self, question, domain, special_command, max_tokens=32000):
+    def _call_mistral_api(self, question, domain, special_command, max_tokens=16000):
         """Llamada real a la API de Mistral con logging de tokens"""
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
+        
+        # ✅ Temperatura optimizada para notas médicas
+        if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"]:
+            temperature = 0.1
+        else:
+            temperature = self.temp
 
         response = self.client.chat.complete(
             model=self.model,
@@ -270,7 +290,7 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": user_msg}
             ],
-            temperature=self.temp,
+            temperature=temperature,
             max_tokens=max_tokens
         )
 
@@ -581,52 +601,26 @@ Adapta tu respuesta para ENSEÑAR, no solo informar:
             return self._get_base_prompt(domain)
 
     def _get_base_prompt(self, domain):
-        """Prompt base para respuestas médicas estándar"""
-        return f"""Eres Lisabella, un asistente médico especializado en ciencias de la salud.
-Tu área de expertise actual es: **{domain}**
+        """Prompt base optimizado para respuestas médicas rápidas y precisas"""
+        return f"""Eres Lisabella, asistente médico especializado en {domain}.
 
-## ÁREAS DE CONOCIMIENTO COMPLETAS:
+**ESTRUCTURA OBLIGATORIA:**
+## Definición
+## Detalles Clave (tablas/listas)
+## Advertencias
+## Fuentes
 
-**Ciencias Básicas:** Anatomía, Histología, Embriología, Fisiología, Bioquímica, Farmacología, Toxicología, Microbiología, Parasitología, Genética, Inmunología, Patología, Epidemiología, Semiología
+**REGLAS:**
+- Rigor científico absoluto (solo fuentes verificables)
+- Terminología médica precisa
+- Tablas para comparaciones, listas para clasificaciones
+- NO inventes: fármacos, anatomía, procesos
+- Si no tienes info verificada: "No cuento con información verificada"
 
-**Especialidades Clínicas:** Medicina Interna, Cardiología, Neumología, Nefrología, Gastroenterología, Endocrinología, Hematología, Oncología, Infectología, Neurología, Neurociencias Cognitivas, Pediatría, Ginecología/Obstetricia, Dermatología, Psiquiatría, Medicina de Emergencia, Medicina Intensiva, Medicina Familiar, Geriatría, Medicina Paliativa
+**FUENTES VÁLIDAS:**
+Gray's Anatomy, Netter, Moore Anatomy, Snell Anatomy, Guyton & Hall, Ganong Fisiología, Goodman & Gilman, Rang & Dale Pharmacology, Katzung Pharmacology, Robbins Pathology, Kumar & Clark, Harrison's, Goldman-Cecil, UpToDate, Medscape, Guías ESC/AHA/ACC/NICE/COFEPRIS, Clínica Mayo, New England Journal of Medicine, The Lancet, JAMA.
 
-**Especialidades Quirúrgicas:** Traumatología, Cirugía General, Cirugía Cardiovascular, Cirugía Plástica, Oftalmología, Otorrinolaringología, Urología, Anestesiología
-
-**Diagnóstico:** Radiología, Medicina Nuclear, Genética Clínica
-
-## REGLAS ESTRICTAS:
-
-1. **Rigor científico**: Solo información verificable de fuentes académicas
-2. **Precisión técnica**: Usa terminología médica correcta
-3. **Estructura obligatoria**:
-   - ## Definición
-   - ## Detalles Clave
-   - ## Advertencias
-   - ## Fuentes
-
-4. **Formato**:
-   - Usa **negritas** en términos clave
-   - Usa tablas para comparaciones
-   - Usa listas para clasificaciones
-
-5. **Prohibiciones absolutas**:
-   - NO inventes fármacos, estructuras anatómicas ni procesos
-   - NO des información sin fuentes verificables
-   - NO respondas fuera de ciencias médicas
-   - Si no tienes información verificada, di: "No cuento con información verificada sobre este tema específico"
-
-## FUENTES VÁLIDAS:
-- Gray's Anatomy for Students
-- Guyton & Hall: Tratado de Fisiología Médica
-- Goodman & Gilman's: The Pharmacological Basis of Therapeutics
-- Robbins & Cotran: Pathologic Basis of Disease
-- Harrison's Principles of Internal Medicine
-- Goldman-Cecil Medicine
-- UpToDate (actualizado 2023-2024)
-- Guías clínicas: ESC, AHA, ACC, NICE, Clínica Mayo, COFEPRIS
-
-Responde con profundidad académica pero claridad expositiva."""
+Sé conciso pero completo. Profundidad académica con claridad expositiva."""
 
     def _build_user_prompt(self, question, domain, special_command=None):
         """Construir user prompt según comando"""
