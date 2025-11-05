@@ -1,0 +1,87 @@
+estructura histologica del tejido adiposo
+✅ Respuesta Procesada
+Estructura Histológica del Tejido Adiposo
+
+Definición
+El tejido adiposo es un tipo de tejido conectivo especializado cuya función principal es el almacenamiento de energía en forma de triglicéridos, además de participar en la termorregulación, amortiguación mecánica y secreción endocrina (adipocinas). Histológicamente, se clasifica en dos tipos principales:
+
+    Tejido adiposo blanco (TAB) o unilocular.
+    Tejido adiposo pardo (TAP) o multilocular.
+
+
+Detalles Clave
+
+1. Composición Celular Básica
+Componente	Descripción
+Adipocitos	Células especializadas en almacenar lípidos. Representan el 60-85% del volumen del tejido.
+Matriz extracelular	Compuesta por colágeno tipo I y III, proteoglucanos y fibras elásticas, que proporcionan soporte estructural.
+Vasos sanguíneos	Abundante vascularización (capilares fenestrados) para el transporte de ácidos grasos y hormonas. El TAP tiene mayor densidad vascular que el TAB.
+Nervios	Inervación simpática (regula lipólisis) y, en el TAP, terminaciones noradrenérgicas que estimulan la termogénesis.
+Células del estroma	Fibroblastos, macrófagos (asociados a inflamación en obesidad), preadipocitos (células madre mesenquimales diferenciables a adipocitos) y células inmunitarias (linfocitos, mastocitos).
+
+
+2. Tejido Adiposo Blanco (TAB)
+
+    Morfología:
+
+- Adipocitos grandes (50–150 µm de diámetro), con un único liposoma (gotas lipídicas fusionadas) que desplaza el citoplasma y núcleo a la periferia ("anillo de sello").
+- Núcleo aplanado y excéntrico.
+
+    Ultrastructura:
+
+- Mitocondrias escasas y pequeñas.
+- Retículo endoplasmático liso (REL) y aparato de Golgi poco desarrollados (baja actividad metabólica basal).
+
+    Funciones:
+
+- Almacenamiento de energía (triglicéridos).
+- Aislamiento térmico.
+- Secreción de leptina, adiponectina, resistina y citocinas proinflamatorias (TNF-α, IL-6).
+
+    Localización:
+
+- Subcutáneo (hipodermis), visceral (epiplón, mesenterio), médula ósea (adipocitos amarillos).
+
+
+3. Tejido Adiposo Pardo (TAP)
+
+    Morfología:
+
+- Adipocitos pequeños (20–40 µm), con múltiples gotas lipídicas (multilocular) y citoplasma abundante.
+- Núcleo central y redondeado.
+
+    Ultrastructura:
+
+- Mitocondrias abundantes (ricas en proteína desacoplante 1, UCP1), responsables de la termogénesis.
+- REL y Golgi bien desarrollados.
+
+    Funciones:
+
+- Generación de calor (termogénesis adaptativa) mediante oxidación de ácidos grasos.
+- Importante en neonatos y hibernantes.
+
+    Localización:
+
+- Regiones interescapular, perirrenal, cuello (en adultos, en depósitos residuales).
+- En humanos, también se encuentra como "tejido adiposo beige" (adipocitos blancos con capacidad de "pardización" por estímulos como frío o ejercicio).
+
+4. Comparación Histológica
+Característica	Tejido Adiposo Blanco (TAB)	Tejido Adiposo Pardo (TAP)
+Tamaño adipocitos	Grandes (50–150 µm)	Pequeños (20–40 µm)
+Gotas lipídicas	Unilocular	Multilocular
+Núcleo	Periférico, aplanado	Central, redondeado
+Mitocondrias	Escasas	Abundantes (con UCP1)
+Vascularización	Moderada	Alta
+Color	Amarillento (por carotenos)	Pardo (por mitocondrias)
+Función principal	Almacenamiento de energía	Termogénesis
+
+5. Regulación y Plasticidad
+
+    Diferenciación:
+
+- Los preadipocitos (células progenitoras) se diferencian a adipocitos bajo estímulo de PPAR-γ (receptor activado por proliferadores de peroxisomas) y CEBP-α (proteína de unión a CCAAT).
+
+    Pardización del TAB:
+
+- El TAB puede adquirir características del TAP ("adipocitos beige") por exposición a:
+- Frío (activación de recept
