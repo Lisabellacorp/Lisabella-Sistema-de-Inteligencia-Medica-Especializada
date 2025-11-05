@@ -1,108 +1,106 @@
+import os
 import time
-import json
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
+
 from mistralai import Mistral
 
-# ⚠️ IMPORTANTE
-# Asegúrate de tener la variable de entorno con tu clave:
-# export MISTRAL_API_KEY="TU_KEY_AQUI"
+try:
+    from src.config import MISTRAL_KEY, MISTRAL_MODEL, MISTRAL_TEMP
+except ImportError:
+    MISTRAL_KEY = os.environ.get("MISTRAL_API_KEY")
+    MISTRAL_MODEL = os.environ.get("MISTRAL_MODEL", "mistral-large-latest")
+    MISTRAL_TEMP = float(os.environ.get("MISTRAL_TEMP", "0.3"))
+
+if not MISTRAL_KEY:
+    raise Exception("❌ ERROR: Falta variable de entorno MISTRAL_API_KEY")
 
 class MistralClient:
     def __init__(self):
-        self.client = Mistral()
+        self.client = Mistral(api_key=MISTRAL_KEY)
+        self.model = MISTRAL_MODEL
+        self.temp = MISTRAL_TEMP
+        self.max_retries = 3
+        self.base_retry_delay = 2
+        self.api_timeout = 180  # 3 minutos
 
-        # Default del sistema
-        self.model = "mistral-large-latest"
+        print(f"✅ MistralClient listo | Modelo: {self.model}")
 
-        print(f"✅ MistralClient iniciado con modelo: {self.model}")
-
-    # 📊 Registro del uso de tokens
-    def _log_token_usage(self, prompt_tokens, completion_tokens, domain):
-        log_entry = {
-            "timestamp": time.time(),
-            "domain": domain,
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total": prompt_tokens + completion_tokens
-        }
-        # Log en consola
-        print(f"📊 Tokens usados | Prompt: {prompt_tokens} | Completion: {completion_tokens} | Domain: {domain}")
-
-        # Guardar en archivo
+    def _log(self, prompt, completion, domain):
+        total = prompt + completion
+        ts = time.strftime("%Y-%m-%d %H:%M:%S")
+        print(f"📊 {ts} Tokens: P={prompt} C={completion} T={total} | {domain}")
         try:
-            with open("logs/token_usage.log", "a") as f:
-                f.write(json.dumps(log_entry) + "\n")
-        except Exception as e:
-            print(f"⚠️ Error guardando log tokens: {e}")
-
-    # ✅ Modo no-stream
-    def generate(self, prompt, domain="general", special_command=None, max_tokens=32000):
-
-        system_prompt = f"""
-Eres Lisabella, asistente médico ultra riguroso. 
-Responde con evidencia y precisión.
-
-Dominio: {domain}
-Comando especial: {special_command if special_command else "ninguno"}
-"""
-
-        response = self.client.chat.complete(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.2,
-            max_tokens=max_tokens
-        )
-
-        # Log tokens
-        try:
-            usage = response.usage
-            self._log_token_usage(usage.prompt_tokens, usage.completion_tokens, domain)
+            with open("logs/token_usage.log", "a", encoding="utf-8") as f:
+                f.write(f"{ts}|{domain}|{prompt}|{completion}|{total}\n")
         except:
-            print("⚠️ No se pudieron leer los tokens")
+            pass
 
-        return response.choices[0].message.content
+    def generate_stream(self, question, domain, special=None):
+        system = self._build_system(domain, special)
+        user = self._build_user(question, domain, special)
 
-    # ✅ STREAMING REAL
-    def generate_stream(self, prompt, domain="general", special_command=None, max_tokens=32000):
-        
-        system_prompt = f"""
-Eres Lisabella, asistente médico preciso, basado en evidencia.
-Dominio: {domain}
-Comando: {special_command if special_command else "ninguno"}
-"""
-
-        # Ejecutar stream
         stream = self.client.chat.stream(
             model=self.model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.2,
+            messages=[{"role": "system","content": system},{"role":"user","content": user}],
+            temperature=self.temp,
+            max_tokens=32000
+        )
+
+        acc = ""
+        count = 0
+
+        for chunk in stream:
+            if hasattr(chunk, "data") and chunk.data and hasattr(chunk.data, "choices"):
+                delta = chunk.data.choices[0].delta.content
+                if delta:
+                    count += 1
+                    acc += delta
+                    yield delta
+
+        # estimación de tokens
+        p = len(system + user) // 4
+        c = len(acc) // 4
+        self._log(p, c, domain)
+
+        yield "__STREAM_DONE__"
+
+    def generate(self, question, domain, special=None):
+        for _ in range(self.max_retries):
+            try:
+                with ThreadPoolExecutor(max_workers=1) as exe:
+                    fut = exe.submit(
+                        self._call,
+                        question,
+                        domain,
+                        special,
+                        32000
+                    )
+                    return fut.result(timeout=self.api_timeout)
+            except TimeoutError:
+                time.sleep(self.base_retry_delay)
+        return "⏱️ Timeout — intenta de nuevo."
+
+    def _call(self, question, domain, special, max_tokens):
+        system = self._build_system(domain, special)
+        user = self._build_user(question, domain, special)
+
+        r = self.client.chat.complete(
+            model=self.model,
+            messages=[{"role": "system","content": system},{"role":"user","content": user}],
+            temperature=self.temp,
             max_tokens=max_tokens
         )
 
-        total_prompt_tokens = 0
-        total_completion_tokens = 0
+        u = r.usage
+        self._log(u.prompt_tokens, u.completion_tokens, domain)
 
-        for event in stream:
-            if event.type == "response.refusal.delta":
-                continue
+        return r.choices[0].message.content
 
-            if event.type == "token":
-                total_completion_tokens += 1
-                yield event.token
+    def _build_system(self, domain, special):
+        base = f"Eres Lisabella, asistente médico experto. Dominio: {domain}"
+        if special:
+            base += f"\nComando especial: {special}"
+        return base
 
-            # Al final, log tokens
-            if event.type == "response.completed":
-                try:
-                    total_prompt_tokens = event.response.usage.prompt_tokens
-                    total_completion_tokens = event.response.usage.completion_tokens
-                    self._log_token_usage(total_prompt_tokens, total_completion_tokens, domain)
-                except:
-                    print("⚠️ No fue posible registrar tokens")
-                
-                yield "__STREAM_DONE__"
-                break
+    def _build_user(self, q, domain, special):
+        return q
