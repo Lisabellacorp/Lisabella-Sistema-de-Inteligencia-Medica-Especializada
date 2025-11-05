@@ -1,0 +1,74 @@
+estructura histologica del tejido adiposo
+✅ Respuesta Procesada
+Estructura Histológica del Tejido Adiposo
+
+Definición
+El tejido adiposo es un tipo de tejido conectivo especializado cuya función principal es el almacenamiento de lípidos (triglicéridos), la regulación metabólica y la aislamiento térmico. Está compuesto por adipocitos (células adiposas) y una matriz extracelular con vasos sanguíneos, nervios y células del sistema inmune. Existen dos tipos principales:
+
+    Tejido adiposo blanco (TAB).
+    Tejido adiposo pardo (TAP).
+
+
+Detalles Clave
+
+1. Clasificación y Localización
+Tipo	Localización Principal	Función Principal
+Tejido adiposo blanco	Subcutáneo, visceral (omentos, mesenterio), médula ósea	Almacén de energía, aislamiento térmico, secreción de adipocinas
+Tejido adiposo pardo	Regiones interescapular, perirrenal, supraclavicular (en neonatos y adultos en menor cantidad)	Termogénesis (producción de calor) mediante desacople mitocondrial
+
+
+2. Estructura Histológica
+##### A. Tejido Adiposo Blanco (TAB)
+
+    Adipocitos:
+
+- Células grandes (50–150 µm de diámetro), redondeadas o poliédricas.
+- Citoplasma reducido a un anillo periférico (con núcleo aplanado en "signet ring").
+- Gotas lipídicas únicas y grandes (uniloculares) que desplazan el núcleo hacia la periferia.
+- Membrana plasmática con transportadores de glucosa (GLUT4) y receptores para insulina, catecolaminas y hormonas.
+
+    Matriz extracelular:
+
+- Fibras de colágeno tipo I y III, proteoglicanos y células del estroma vascular (preadipocitos, macrófagos, linfocitos).
+- Vascularización abundante: cada adipocito está en contacto con al menos un capilar.
+- Inervación simpática: regula la lipólisis (via receptores β-adrénicos).
+
+    Ultrastructura:
+
+- Pocas mitocondrias (comparado con TAP).
+- Retículo endoplasmático liso bien desarrollado (síntesis de lípidos).
+
+##### B. Tejido Adiposo Pardo (TAP)
+
+    Adipocitos:
+
+- Células más pequeñas (20–50 µm) y poliédricas.
+- Múltiples gotas lipídicas pequeñas (multiloculares).
+- Núcleo central (no desplazado).
+- Abundantes mitocondrias con crestas densas (ricas en proteína desacoplante 1, UCP1), responsable de la termogénesis.
+
+    Matriz extracelular:
+
+- Densa vascularización (necesaria para distribuir el calor generado).
+- Inervación simpática más intensa que en TAB (estimula la termogénesis via noradrenalina).
+
+    Ultrastructura:
+
+- Mitocondrias con forma ovalada y crestas laminares.
+- Presencia de UCP1 en la membrana mitocondrial interna (desacopla la fosforilación oxidativa).
+
+3. Diferencias Clave entre TAB y TAP
+Característica	Tejido Adiposo Blanco (TAB)	Tejido Adiposo Pardo (TAP)
+Color	Amarillento (por carotenos)	Pardo (por mitocondrias y vascularización)
+Gotas lipídicas	Unilocular (1 gran gota)	Multilocular (múltiples gotas pequeñas)
+Núcleo	Periférico ("signet ring")	Central
+Mitocondrias	Pocas, crestas tubulares	Abundantes, crestas laminares, con UCP1
+Función principal	Almacén de energía, secreción hormonal	Termogénesis (quema de lípidos para calor)
+Inervación simpática	Moderada	Intensa
+Expresión de UCP1	Ausente	Alta
+
+4. Funciones Adicionales
+
+    Secreción endocrina:
+
+- **Adipocinas
