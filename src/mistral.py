@@ -60,7 +60,7 @@ class MistralClient:
                     {"role": "user", "content": user_msg}
                 ],
                 temperature=self.temp,
-                max_tokens=16000  # ✅ Cuadruplicado para respuestas médicas extensas
+                max_tokens=32000  # ✅ Expandido a 32k para respuestas médicas extensas
             )
             
             chunk_count = 0
@@ -151,7 +151,7 @@ class MistralClient:
             yield "__STREAM_DONE__"
 
     def generate(self, question, domain, special_command=None):
-        """Generar respuesta COMPLETA con retry automático (16000 tokens)"""
+        """Generar respuesta COMPLETA con retry automático (32000 tokens)"""
 
         for attempt in range(self.max_retries):
             try:
@@ -161,7 +161,7 @@ class MistralClient:
                         question,
                         domain,
                         special_command,
-                        max_tokens=16000
+                        max_tokens=32000
                     )
                     result = future.result(timeout=self.api_timeout)
                 
@@ -259,7 +259,7 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
 
         return self._generate_rate_limit_message()
 
-    def _call_mistral_api(self, question, domain, special_command, max_tokens=16000):
+    def _call_mistral_api(self, question, domain, special_command, max_tokens=32000):
         """Llamada real a la API de Mistral con logging de tokens"""
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
@@ -546,7 +546,7 @@ Firma y Sello del Médico
 ### Diagnósticos diferenciales:
 1. [DIAGNÓSTICO] - [Criterios que apoyan/descartan]
 2. [DIAGNÓSTICO] - [Criterios que apoyan/descartan]
-3. [DIAGNÓSTICO] - [Criterios que apoyan/descartan]
+3. [DIAGNÓSTICO] - [Criterios que apoyan/descartar]
 
 ## 🔬 Estudios Sugeridos
 [Lista priorizada]
