@@ -31,7 +31,21 @@ class MistralClient:
         self.temp = MISTRAL_TEMP
         self.max_retries = 3
         self.base_retry_delay = 2
-        self.api_timeout = 90
+        self.api_timeout = 180  # ✅ 3 minutos para respuestas largas
+
+    def _log_token_usage(self, prompt_tokens, completion_tokens, domain):
+        """📊 Tracking de uso de tokens"""
+        total = prompt_tokens + completion_tokens
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        
+        print(f"📊 [{timestamp}] Tokens: P={prompt_tokens} + C={completion_tokens} = {total} | Dominio: {domain}")
+        
+        # ✅ Guardar en archivo para análisis posterior
+        try:
+            with open("logs/token_usage.log", "a", encoding="utf-8") as f:
+                f.write(f"{timestamp}|{domain}|{prompt_tokens}|{completion_tokens}|{total}\n")
+        except:
+            pass  # No crítico si falla
 
     def generate_stream(self, question, domain, special_command=None):
         """🚀 Genera respuesta con STREAMING REAL de Mistral."""
@@ -46,11 +60,11 @@ class MistralClient:
                     {"role": "user", "content": user_msg}
                 ],
                 temperature=self.temp,
-                max_tokens=4000
+                max_tokens=16000  # ✅ Cuadruplicado para respuestas médicas extensas
             )
             
             chunk_count = 0
-            accumulated_content = ""  # ✅ Acumular para detectar errores
+            accumulated_content = ""
             
             for chunk in stream:
                 if hasattr(chunk, 'data') and chunk.data and hasattr(chunk.data, 'choices'):
@@ -80,12 +94,16 @@ class MistralClient:
                             
                             yield delta
             
-            print(f"✅ Stream completado naturalmente. Total chunks: {chunk_count}")
+            print(f"✅ Stream completado. Total chunks: {chunk_count}, chars: {len(accumulated_content)}")
             
-            # ✅ VALIDACIÓN FINAL: Si recibimos MUY poco contenido, algo salió mal
+            # ✅ Logging de tokens (estimado para stream)
+            estimated_prompt_tokens = len(system_msg + user_msg) // 4
+            estimated_completion_tokens = len(accumulated_content) // 4
+            self._log_token_usage(estimated_prompt_tokens, estimated_completion_tokens, domain)
+            
+            # ✅ VALIDACIÓN FINAL
             if chunk_count > 0 and len(accumulated_content) < 100:
-                print(f"⚠️ Respuesta sospechosamente corta ({len(accumulated_content)} chars): {accumulated_content}")
-                # No enviar DONE si la respuesta es sospechosa
+                print(f"⚠️ Respuesta sospechosamente corta ({len(accumulated_content)} chars)")
                 yield "\n\n⚠️ **Respuesta incompleta detectada**\n\nPor favor, intenta nuevamente."
             
             yield "__STREAM_DONE__"
@@ -96,7 +114,6 @@ class MistralClient:
             
             print(f"❌ EXCEPCIÓN EN STREAM: {error_str[:300]}")
             
-            # ✅ DETECCIÓN PRECISA de rate limit
             is_rate_limit = (
                 "429" in error_str or 
                 "rate_limit" in error_lower or
@@ -134,7 +151,7 @@ class MistralClient:
             yield "__STREAM_DONE__"
 
     def generate(self, question, domain, special_command=None):
-        """Generar respuesta COMPLETA con retry automático (4000 tokens)"""
+        """Generar respuesta COMPLETA con retry automático (16000 tokens)"""
 
         for attempt in range(self.max_retries):
             try:
@@ -144,7 +161,7 @@ class MistralClient:
                         question,
                         domain,
                         special_command,
-                        max_tokens=4000
+                        max_tokens=16000
                     )
                     result = future.result(timeout=self.api_timeout)
                 
@@ -189,17 +206,14 @@ La consulta tomó demasiado tiempo en procesarse.
                     "rate_limit" in error_lower or
                     "rate limit" in error_lower or
                     "too many requests" in error_lower or
-                    "quota exceeded" in error_lower or
-                    "capacity" in error_lower or
-                    "tier" in error_lower
+                    "quota exceeded" in error_lower
                 )
                 
                 is_auth_error = (
                     "401" in error_str or
                     "403" in error_str or
                     "authentication" in error_lower or
-                    "api key" in error_lower or
-                    "unauthorized" in error_lower
+                    "api key" in error_lower
                 )
                 
                 is_network_error = (
@@ -245,8 +259,8 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
 
         return self._generate_rate_limit_message()
 
-    def _call_mistral_api(self, question, domain, special_command, max_tokens=4000):
-        """Llamada real a la API de Mistral con 4000 tokens"""
+    def _call_mistral_api(self, question, domain, special_command, max_tokens=16000):
+        """Llamada real a la API de Mistral con logging de tokens"""
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
 
@@ -259,6 +273,14 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
             temperature=self.temp,
             max_tokens=max_tokens
         )
+
+        # ✅ Logging de tokens reales
+        if hasattr(response, 'usage') and response.usage:
+            self._log_token_usage(
+                response.usage.prompt_tokens,
+                response.usage.completion_tokens,
+                domain
+            )
 
         return response.choices[0].message.content
 
