@@ -7,8 +7,18 @@ antes de consumir tokens en Mistral, reformulándolas educativamente.
 """
 
 import re
+import unicodedata
 from typing import Dict, List, Tuple
 
+
+def _norm(text: str) -> str:
+    """Normaliza texto: minúsculas y sin acentos para comparación robusta."""
+    if text is None:
+        return ""
+    text = text.lower().strip()
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    return text
 
 # ═══════════════════════════════════════════════════════
 # DICCIONARIOS DE DETECCIÓN
@@ -307,79 +317,62 @@ def detectar_amplitud(query: str, domain: str) -> int:
 
 def generar_reformulacion(query: str, domain: str) -> str:
     """
-    Genera mensaje educativo con reformulaciones específicas.
-    
-    Args:
-        query: Pregunta original del usuario
-        domain: Dominio médico detectado
-    
-    Returns:
-        Mensaje markdown con opciones de reformulación
+    Genera mensaje educativo con reformulaciones específicas (ultra-concretas),
+    con matching insensible a acentos y dominio-agnóstico.
     """
-    query_lower = query.lower().strip()
-    
-    # Identificar órgano/sistema mencionado
+    query_norm = _norm(query)
+
+    # 1) Intentar detectar órgano por lista amplia (normalizada)
     organo_detectado = None
-    for organo in ORGANOS_AMPLIOS:
-        if organo in query_lower:
-            organo_detectado = organo
+    organos_norm = [(item, _norm(item)) for item in ORGANOS_AMPLIOS]
+    for original, normed in organos_norm:
+        if normed and normed in query_norm:
+            organo_detectado = original
             break
-    
-    # Si no se detecta órgano específico, usar dominio general
-    if not organo_detectado:
-        organo_detectado = "tema general"
-    
-    # Buscar reformulaciones predefinidas
+
+    # 2) Buscar reformulaciones PREDEFINIDAS escaneando TODOS los dominios
     reformulaciones = None
-    
-    if domain in REFORMULACIONES_POR_DOMINIO:
-        dominio_dict = REFORMULACIONES_POR_DOMINIO[domain]
-        
-        # Buscar coincidencia exacta o parcial
-        for key, value in dominio_dict.items():
-            if key in query_lower or any(part in query_lower for part in key.split()):
+    mejor_match_key = None
+    for dom, m in REFORMULACIONES_POR_DOMINIO.items():
+        for key, value in m.items():
+            if _norm(key) in query_norm:
                 reformulaciones = value
+                mejor_match_key = key
                 organo_detectado = key
                 break
-    
-    # Si no hay reformulaciones predefinidas, generar genéricas
+        if reformulaciones:
+            break
+
+    # 3) Si no hubo match por clave, pero sí órgano, intentar mapa por órgano
+    if not reformulaciones and organo_detectado:
+        # Preferir las listas del dominio 'anatomía' si existen
+        anat_dict = REFORMULACIONES_POR_DOMINIO.get("anatomía") or REFORMULACIONES_POR_DOMINIO.get("anatomia")
+        if anat_dict:
+            # Buscar clave con o sin acentos
+            for key, value in anat_dict.items():
+                if _norm(key) == _norm(organo_detectado):
+                    reformulaciones = value
+                    mejor_match_key = key
+                    break
+
+    # 4) Si sigue sin haber predefinidas, generar genéricas (pero específicas)
     if not reformulaciones:
-        reformulaciones = _generar_reformulaciones_genericas(query_lower, domain, organo_detectado)
-    
-    # Construir mensaje educativo
+        # Intentar un nombre de órgano legible aún si venía normalizado
+        organo_legible = organo_detectado or "tema"
+        reformulaciones = _generar_reformulaciones_genericas(query_norm, domain, organo_legible)
+
+    # 5) Construir mensaje educativo
     mensaje = f"""💡 **Tu pregunta requiere mayor precisión clínica**
 
 Tu consulta sobre **"{query}"** es médicamente válida, pero abarca un tema demasiado amplio que requeriría una respuesta extensa (potencialmente >3000 tokens).
 
-**🎓 Formulación de preguntas clínicas precisas:**
-
-En medicina, la precisión en la formulación de preguntas es fundamental. Preguntas muy amplias dificultan obtener respuestas prácticas y aplicables.
-
 **📋 Reformulaciones sugeridas:**
-
 """
-    
-    # Agregar opciones numeradas
+
     for i, reformulacion in enumerate(reformulaciones[:5], 1):
         mensaje += f"{i}. {reformulacion}\n"
-    
-    mensaje += f"""
-**💡 Tip educativo:**
 
-Lisabella está diseñada para enseñarte a formular preguntas como un médico experto. Las preguntas específicas permiten:
-- Respuestas más precisas y aplicables
-- Mejor comprensión de conceptos complejos
-- Desarrollo de habilidades clínicas
-
-**📚 Referencia bibliográfica:**
-
-Este enfoque educativo se basa en metodologías de aprendizaje clínico descritas en:
-- "Evidence-Based Medicine: How to Practice and Teach EBM" (Sackett et al.)
-- "Clinical Reasoning: Learning to Think Like a Physician" (Norman & Eva)
-- Guías de educación médica de la AMA (American Medical Association)
-
-¿Cuál de estas opciones te interesa explorar? Puedes copiar y pegar cualquiera de ellas."""
-    
+    mensaje += "\n**Sugerencia:** Copia una de las opciones anteriores para obtener una respuesta completa sin cortes."
     return mensaje
 
 
