@@ -3,6 +3,7 @@ sys.path.insert(0, '/home/ray/lisabella')
 
 from src.wrapper import Wrapper, Result
 from src.mistral import MistralClient
+from src.amplitud_detector import evaluar_y_reformular
 
 class Lisabella:
     def __init__(self):
@@ -61,6 +62,21 @@ class Lisabella:
             # Si es análisis de nota médica (detección automática)
             if note_analysis and not special_command:
                 special_command = "valoracion"  # Por defecto, valorar la nota
+            
+            # ═══════════════════════════════════════════════════════
+            # DETECCIÓN DE AMPLITUD SEMÁNTICA (antes de consumir tokens)
+            # ═══════════════════════════════════════════════════════
+            # NO aplicar a comandos especiales (notas médicas, valoraciones)
+            if not special_command and not note_analysis:
+                es_amplia, reformulacion = evaluar_y_reformular(question, domain)
+                
+                if es_amplia:
+                    return {
+                        "status": "reformulate",
+                        "domain": domain,
+                        "confidence": classification.get("confidence", 0.80),
+                        "response": reformulacion
+                    }
             
             # Generar respuesta
             try:
