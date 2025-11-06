@@ -50,39 +50,39 @@ PALABRAS_AMPLIAS = [
 REFORMULACIONES_POR_DOMINIO = {
     "anatomía": {
         "corazón": [
-            "Anatomía de las cámaras cardíacas (aurículas y ventrículos)",
-            "Sistema valvular cardíaco (tricúspide, mitral, aórtica, pulmonar)",
-            "Irrigación coronaria (arterias coronarias y sus ramas)",
-            "Sistema de conducción cardíaco (nodo sinoauricular, nodo auriculoventricular)",
-            "Inervación del corazón (simpático y parasimpático)"
+            "Irrigación arterial del ventrículo izquierdo por ramas de la arteria coronaria descendente anterior",
+            "Sistema de conducción: nodo SA, nodo AV, Haz de His y fibras de Purkinje (trayectos y relaciones)",
+            "Histología del miocardio: cardiomiocitos, discos intercalares y uniones GAP",
+            "Válvula mitral: valvas, cuerdas tendinosas, músculos papilares y anillo fibroso",
+            "Relaciones pericárdicas del surco auriculoventricular izquierdo"
         ],
         "cerebro": [
-            "Anatomía de los lóbulos cerebrales (frontal, parietal, temporal, occipital)",
-            "Anatomía del tronco encefálico (mesencéfalo, protuberancia, bulbo raquídeo)",
-            "Sistema ventricular y circulación del líquido cefalorraquídeo",
-            "Anatomía del cerebelo (corteza, núcleos profundos, pedúnculos)",
-            "Arterias cerebrales principales (círculo de Willis)"
+            "Irrigación de la cápsula interna: ramas lenticuloestriadas de la arteria cerebral media",
+            "Núcleo subtalámico de Luys: límites, aferencias y eferencias",
+            "Velo medular inferior y cuarto ventrículo: límites anatómicos y relaciones",
+            "Fascículo arqueado: trayecto y correlación clínica (afasia de conducción)",
+            "Corteza precentral (área 4): somatotopía y arterias penetrantes"
         ],
         "riñón": [
-            "Anatomía macroscópica del riñón (corteza, médula, pelvis renal)",
-            "Estructura de la nefrona (glomérulo, túbulos, asa de Henle)",
-            "Irrigación renal (arteria renal y su distribución)",
-            "Sistema colector renal (túbulos colectores, cálices, pelvis)",
-            "Topografía renal (relaciones anatómicas en el retroperitoneo)"
+            "Irrigación del glomérulo: arteriola aferente vs eferente y red capilar peritubular",
+            "Histología del túbulo proximal: borde en cepillo y transportadores de membrana",
+            "Relaciones del hilio renal: anterior→posterior (vena renal, arteria renal, pelvis renal)",
+            "Asa de Henle en nefronas yuxtamedulares: trayecto y vasa recta",
+            "Estrecheces del uréter: unión pieloureteral, cruce con vasos ilíacos, segmento intramural"
         ],
         "hígado": [
-            "Anatomía segmentaria del hígado (segmentos de Couinaud)",
-            "Sistema portal hepático (vena porta y sus ramas)",
-            "Irrigación hepática (arteria hepática propia)",
-            "Vías biliares intrahepáticas y extrahepáticas",
-            "Relaciones anatómicas del hígado (ligamentos, impresiones)"
+            "Segmento VIII de Couinaud: límites vasculares y drenaje venoso",
+            "Tríada portal: arteria hepática, vena porta y conducto biliar (espacios de Kiernan)",
+            "Irrigación de la vesícula biliar: arteria cística y variaciones anatómicas",
+            "Ligamento venoso (Arancio) y su relación con la vena hepática izquierda",
+            "Histología del lobulillo hepático: sinusoides, placas hepatocitarias y células de Kupffer"
         ],
         "pulmón": [
-            "Anatomía del árbol bronquial (bronquios principales, segmentarios, subsegmentarios)",
-            "Estructura del lobulillo pulmonar (alvéolos, bronquiolos terminales)",
-            "Irrigación pulmonar (arterias pulmonares y arterias bronquiales)",
-            "Pleura y espacios pleurales (pleura visceral, parietal, seno costodiafragmático)",
-            "Segmentación pulmonar (segmentos broncopulmonares)"
+            "Segmento broncopulmonar apical del lóbulo superior derecho: bronquio, arteria y vena segmentaria",
+            "Pleura costodiafragmática: recesos pleurales y líneas de reflexión",
+            "Ácino pulmonar: límites histológicos y barrera hematoalveolar",
+            "Irrigación bronquial: ramas de la aorta torácica y drenaje venoso",
+            "Relación del bronquio principal derecho con la arteria pulmonar derecha (eparterial/hiparterial)"
         ],
         "sistema cardiovascular": [
             "Anatomía del corazón y grandes vasos",
