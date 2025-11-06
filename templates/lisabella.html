@@ -88,6 +88,11 @@
             gap: 1.5rem;
             min-height: 0;
         }
+        
+        /* Ocultar contenido principal hasta que se entre */
+        main.main-container:not(.visible) {
+            display: none;
+        }
         .manifesto-box {
             background: linear-gradient(135deg, rgba(0,168,107,0.95) 0%, rgba(93,211,158,0.95) 100%);
             backdrop-filter: blur(15px);
@@ -659,7 +664,7 @@
         </div>
     </header>
 
-    <main class="main-container">
+    <main class="main-container" style="display: none;">
         <div class="manifesto-box">
             <p><strong>La excelencia en medicina exige la mejor tecnología para los mejores diagnósticos.</strong> Cada consulta merece la precisión de la evidencia más reciente, cada duda requiere la certeza de fuentes validadas. No hay lugar para la imprecisión cuando la salud de nuestros pacientes está en juego. <strong>Ciencia, rigor y compromiso inquebrantable con la vida.</strong></p>
         </div>
@@ -1227,11 +1232,16 @@
         // ═══════════════════════════════════════════════════════
         function enterLisabella() {
             const welcomeScreen = document.getElementById('welcomeScreen');
+            const mainContainer = document.querySelector('main.main-container');
+            
             welcomeScreen.style.opacity = '0';
             welcomeScreen.style.transition = 'opacity 0.5s ease';
             
             setTimeout(() => {
                 welcomeScreen.classList.add('hidden');
+                if (mainContainer) {
+                    mainContainer.classList.add('visible');
+                }
                 questionInput.focus();
             }, 500);
         }

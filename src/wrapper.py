@@ -140,7 +140,7 @@ class Wrapper:
         
         total_keywords = sum(domain_scores.values())
         
-        # REGLA CRÍTICA: Si tiene ≥3 keywords médicos, APROBAR sin importar la estructura
+        # REGLA CRÍTICA: Si tiene ≥3 keywords médicos (o patrones técnicos), APROBAR sin importar la estructura
         if total_keywords >= 3:
             best_domain = max(domain_scores, key=domain_scores.get)
             confidence = min(0.92, 0.70 + (total_keywords * 0.06))
@@ -160,6 +160,18 @@ class Wrapper:
                 "confidence": round(confidence, 2)
             }
         
+        # ✅ NUEVA REGLA: Si tiene patrones técnicos detectados (macroscópica, microscópica, etc.)
+        # aunque no tenga keywords exactos, APROBAR si tiene ≥2 patrones técnicos
+        technical_patterns_detected = self._detect_technical_patterns(q_lower)
+        if technical_patterns_detected >= 2:
+            inferred_domain = self._infer_domain_from_context(q_lower)
+            if inferred_domain:
+                return {
+                    "result": Result.APPROVED,
+                    "domain": inferred_domain,
+                    "confidence": 0.80  # Buena confianza por patrones técnicos
+                }
+        
         # Si encontró keywords pero sin patrón claro → Aceptar con confianza media si tiene suficientes
         if domain_scores:
             best_domain = max(domain_scores, key=domain_scores.get)
@@ -167,6 +179,19 @@ class Wrapper:
                 return {
                     "result": Result.APPROVED,
                     "domain": best_domain,
+                    "confidence": 0.75
+                }
+        
+        # ✅ NUEVA REGLA: Si tiene 1 patrón técnico + órgano anatómico, APROBAR
+        if technical_patterns_detected >= 1:
+            # Verificar si menciona órgano anatómico
+            organos = ["corazón", "corazon", "pulmón", "pulmon", "riñón", "riñon", 
+                      "hígado", "higado", "estómago", "estomago", "cerebro"]
+            if any(organo in q_lower for organo in organos):
+                inferred_domain = self._infer_domain_from_context(q_lower) or "anatomía"
+                return {
+                    "result": Result.APPROVED,
+                    "domain": inferred_domain,
                     "confidence": 0.75
                 }
         
@@ -226,9 +251,12 @@ class Wrapper:
         return None
     
     def _get_domain_scores(self, q_lower):
-        """Calcula scores por dominio basado en keywords"""
+        """Calcula scores por dominio basado en keywords Y patrones técnicos médicos"""
         domain_scores = {}
         
+        # ═══════════════════════════════════════════════════════
+        # DETECCIÓN 1: Keywords exactos (sistema original)
+        # ═══════════════════════════════════════════════════════
         for domain, keywords in self.domains.get("keywords", {}).items():
             matches = sum(1 for kw in keywords if kw in q_lower)
             if matches > 0:
@@ -245,7 +273,114 @@ class Wrapper:
         if detected_drugs:
             domain_scores["farmacología"] = domain_scores.get("farmacología", 0) + len(detected_drugs)
         
+        # ═══════════════════════════════════════════════════════
+        # DETECCIÓN 2: Patrones técnicos médicos (sin listas exhaustivas)
+        # ═══════════════════════════════════════════════════════
+        technical_patterns_score = self._detect_technical_patterns(q_lower)
+        if technical_patterns_score:
+            # Asignar a dominio más probable según contexto
+            best_domain = self._infer_domain_from_context(q_lower)
+            if best_domain:
+                domain_scores[best_domain] = domain_scores.get(best_domain, 0) + technical_patterns_score
+        
         return domain_scores
+    
+    def _detect_technical_patterns(self, q_lower):
+        """
+        Detecta términos técnicos médicos por PATRONES, no solo listas.
+        Esto permite reconocer términos como 'macroscópica', 'microscópica', etc.
+        """
+        score = 0
+        
+        # Patrones de sufijos médicos técnicos
+        medical_suffixes = [
+            r'\b\w*(scópica|scopica|scópico|scopico)\b',  # macroscópica, microscópica
+            r'\b\w*(logía|logia|logías|logias)\b',       # anatomía, fisiología, patología
+            r'\b\w*(patía|patia|patías|patias)\b',       # miocardiopatía, neuropatía
+            r'\b\w*(emia|emias)\b',                      # anemia, hipoglucemia
+            r'\b\w*(itis|itis)\b',                       # gastritis, hepatitis
+            r'\b\w*(osis|osis)\b',                       # cirrosis, tuberculosis
+            r'\b\w*(plásia|plasia|plásias|plasias)\b',  # displasia, hiperplasia
+            r'\b\w*(tropía|tropia|tropías|tropias)\b',  # hipertrofia, atrofia
+        ]
+        
+        for pattern in medical_suffixes:
+            if re.search(pattern, q_lower):
+                score += 1
+        
+        # Patrones de términos técnicos compuestos
+        technical_compounds = [
+            r'\b(irrigación|irrigacion|inervación|inervacion)\b',
+            r'\b(topografía|topografia|relación|relacion)\s+anatómica',
+            r'\b(estructura|composición|composicion)\s+(anatómica|anatomica|histológica|histologica)',
+            r'\b(mecanismo|fisiopatología|fisiopatologia|fisiopatológico|fisiopatologico)\b',
+            r'\b(farmacocinética|farmacocinetica|farmacodinámica|farmacodinamica)\b',
+            r'\b(diagnóstico|diagnostico)\s+diferencial',
+            r'\b(criterios|parámetros|parametros)\s+diagnósticos',
+        ]
+        
+        for pattern in technical_compounds:
+            if re.search(pattern, q_lower):
+                score += 1
+        
+        # Patrones de términos anatómicos específicos
+        anatomical_terms = [
+            r'\b(cámara|camara|válvula|valvula|ventrículo|ventriculo|aurícula|auricula)\b',
+            r'\b(arteria|vena|nervio|plexo|ganglio|músculo|musculo)\b',
+            r'\b(lóbulo|lobulo|segmento|fascia|ligamento|tendón|tendon)\b',
+            r'\b(órgano|organo|sistema|aparato)\s+\w+',  # "órgano cardiaco", "sistema cardiovascular"
+        ]
+        
+        for pattern in anatomical_terms:
+            if re.search(pattern, q_lower):
+                score += 1
+                # Si tiene términos anatómicos, es probablemente anatomía
+                if "anatomía" not in q_lower and "anatomia" not in q_lower:
+                    score += 0.5  # Bonus por términos anatómicos sin mencionar "anatomía"
+        
+        return int(score)
+    
+    def _infer_domain_from_context(self, q_lower):
+        """
+        Infiere el dominio más probable basado en contexto y patrones,
+        no solo keywords exactos.
+        """
+        # Detectar contexto por palabras clave de dominio
+        domain_indicators = {
+            "anatomía": [
+                "anatomía", "anatomia", "anatómica", "anatomica", "anatómico", "anatomico",
+                "estructura", "ubicación", "ubicacion", "topografía", "topografia",
+                "macroscópica", "macroscopica", "microscópica", "microscopica",
+                "irrigación", "irrigacion", "inervación", "inervacion", "relación", "relacion"
+            ],
+            "fisiología": [
+                "fisiología", "fisiologia", "fisiológica", "fisiologica", "fisiológico", "fisiologico",
+                "función", "funcion", "mecanismo", "proceso", "regulación", "regulacion",
+                "homeostasis", "fisiopatología", "fisiopatologia"
+            ],
+            "farmacología": [
+                "farmacología", "farmacologia", "fármaco", "farmaco", "medicamento",
+                "dosis", "farmacocinética", "farmacocinetica", "farmacodinámica", "farmacodinamica",
+                "mecanismo de acción", "efectos adversos", "contraindicaciones"
+            ],
+            "patología": [
+                "patología", "patologia", "enfermedad", "etiología", "etiologia",
+                "fisiopatología", "fisiopatologia", "diagnóstico", "diagnostico",
+                "cuadro clínico", "síntomas", "sintomas", "signos"
+            ]
+        }
+        
+        for domain, indicators in domain_indicators.items():
+            matches = sum(1 for indicator in indicators if indicator in q_lower)
+            if matches > 0:
+                return domain
+        
+        # Si no hay indicadores claros pero tiene términos técnicos, asumir anatomía por defecto
+        # (es el dominio más común en preguntas médicas)
+        if re.search(r'\b(corazón|corazon|pulmón|pulmon|riñón|riñon|hígado|higado|estómago|estomago|cerebro)\b', q_lower):
+            return "anatomía"
+        
+        return None
     
     def _get_detected_keywords(self, q_lower):
         """Obtiene lista de keywords detectados"""
