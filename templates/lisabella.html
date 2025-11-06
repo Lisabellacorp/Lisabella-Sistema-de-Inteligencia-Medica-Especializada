@@ -1256,10 +1256,8 @@
                     header.style.display = 'block';
                 }
                 
-                // Guardar en localStorage que ya entró
-                localStorage.setItem('lisabella_entered', 'true');
-                
                 // Asegurar que el input esté disponible
+                // NOTA: Sin localStorage - la bienvenida aparece en cada recarga
                 setTimeout(() => {
                     if (questionInput) {
                         questionInput.focus();
@@ -1268,24 +1266,8 @@
             }, 500);
         }
         
-        // Verificar si ya se entró antes (localStorage)
-        document.addEventListener('DOMContentLoaded', function() {
-            const hasEntered = localStorage.getItem('lisabella_entered');
-            if (hasEntered === 'true') {
-                // Si ya entró antes, mostrar directamente el chat
-                const welcomeScreen = document.getElementById('welcomeScreen');
-                const mainContainer = document.querySelector('main.main-container');
-                const header = document.querySelector('header.header');
-                
-                if (welcomeScreen && mainContainer) {
-                    welcomeScreen.classList.add('hidden');
-                    mainContainer.classList.add('visible');
-                    if (header) {
-                        header.style.display = 'block';
-                    }
-                }
-            }
-        });
+        // Pantalla de bienvenida siempre visible al cargar
+        // (sin localStorage para que aparezca en cada recarga)
         
         // Permitir Enter para entrar
         document.addEventListener('keydown', function(e) {
