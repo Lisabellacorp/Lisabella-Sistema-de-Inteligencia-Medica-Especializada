@@ -485,9 +485,168 @@
                 padding: 0.75rem;
             }
         }
+        /* ═══════════════════════════════════════════════════════
+           PANTALLA DE BIENVENIDA
+           ═══════════════════════════════════════════════════════ */
+        .welcome-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--background);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            padding: 2rem;
+            overflow-y: auto;
+            animation: fadeIn 0.8s ease;
+        }
+        
+        .welcome-screen.hidden {
+            display: none;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .welcome-content {
+            max-width: 800px;
+            background: rgba(255,255,255,0.98);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 3rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            animation: slideUp 0.8s ease;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .welcome-logo {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .welcome-title {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: 2rem;
+            font-weight: 700;
+        }
+        
+        .welcome-manifesto {
+            text-align: left;
+            line-height: 1.9;
+            color: #333;
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: rgba(0,168,107,0.05);
+            border-radius: 15px;
+            border-left: 6px solid var(--primary);
+        }
+        
+        .welcome-manifesto p {
+            margin-bottom: 1.5rem;
+        }
+        
+        .welcome-manifesto strong {
+            color: var(--primary-dark);
+            font-weight: 700;
+        }
+        
+        .welcome-manifesto .highlight {
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 1.2rem;
+            text-align: center;
+            margin: 2rem 0;
+            padding: 1rem;
+            background: rgba(255,215,0,0.2);
+            border-radius: 10px;
+        }
+        
+        .welcome-button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 1rem 3rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,168,107,0.3);
+            margin-top: 1rem;
+        }
+        
+        .welcome-button:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,168,107,0.4);
+        }
+        
+        .welcome-button:active {
+            transform: translateY(0);
+        }
+        
+        @media (max-width: 768px) {
+            .welcome-content {
+                padding: 2rem 1.5rem;
+            }
+            .welcome-title {
+                font-size: 2rem;
+            }
+            .welcome-manifesto {
+                font-size: 1rem;
+                padding: 1.5rem;
+            }
+        }
     </style>
 </head>
 <body>
+    <!-- ═══════════════════════════════════════════════════════
+         PANTALLA DE BIENVENIDA
+         ═══════════════════════════════════════════════════════ -->
+    <div class="welcome-screen" id="welcomeScreen">
+        <div class="welcome-content">
+            <div class="welcome-logo">💚</div>
+            <h1 class="welcome-title">Hola, Soy Lisabella</h1>
+            
+            <div class="welcome-manifesto">
+                <p>Cada vez que cruzas la puerta de un hospital con tu bata blanca, renuevas un compromiso silencioso: <strong>ser el guardián de vidas que confían en ti.</strong></p>
+                
+                <p>Cada vez que entras a un salón de clases, con café en una mano y apuntes en la otra, sabes que cada concepto que domines hoy <strong>puede salvar a alguien mañana.</strong></p>
+                
+                <p>Cada desvelada estudiando, cuando tus ojos se cierran solos pero sigues releyendo el Robbins porque "esto puede venir en el examen"... no es solo por una calificación. Es porque sabes que el día que un paciente llegue con ese cuadro clínico, <strong>no puedes fallarle.</strong></p>
+                
+                <p>Cada cirugía de alta especialidad donde tus manos no pueden temblar, donde cada movimiento debe ser preciso, donde <strong>no hay margen para el error.</strong></p>
+                
+                <p>Cada consulta de especialidad donde el diagnóstico que des cambiará el rumbo de una vida, de una familia entera.</p>
+                
+                <div class="highlight">Yo Existo Porque Tú Existes</div>
+            </div>
+            
+            <button class="welcome-button" onclick="enterLisabella()">
+                Entrar a Lisabella
+            </button>
+        </div>
+    </div>
+
     <header class="header" role="banner">
         <div class="header-container">
             <div class="logo-section">
@@ -742,9 +901,8 @@
                                 chunkCount = 0;
                             }
                             else if (data.type === 'chunk') {
-                                if (currentStreamingBubble) {
-                                    chunkCount++;
-                                    
+                                // ✅ Procesar chunk inmediatamente sin acumular
+                                if (data.content && currentStreamingBubble) {
                                     let cleanContent = data.content;
                                     const hasEndSignal = cleanContent.includes('__STREAM_DONE__') || 
                                                         cleanContent.includes('[STREAM_COMPLETE]');
@@ -758,8 +916,19 @@
                                     
                                     if (cleanContent) {
                                         accumulatedContent += cleanContent;
+                                        chunkCount++;
                                         console.log(`📝 Chunk ${chunkCount} (${cleanContent.length} chars)`);
                                         updateStreamingBubble(formatMarkdown(accumulatedContent));
+                                        
+                                        // Forzar renderizado cada 10 chunks para evitar lag
+                                        if (chunkCount % 10 === 0) {
+                                            requestAnimationFrame(() => {
+                                                // Mantener scroll si usuario no scrolleó
+                                                if (!userScrolledUp) {
+                                                    messagesArea.scrollTop = messagesArea.scrollHeight;
+                                                }
+                                            });
+                                        }
                                     }
                                     
                                     if (hasEndSignal && !streamCompleted) {
@@ -847,24 +1016,26 @@
         function updateStreamingBubble(content) {
             if (!currentStreamingBubble) return;
             
-            currentStreamingBubble.innerHTML = content;
-            
-            const tables = currentStreamingBubble.querySelectorAll('table');
-            tables.forEach(table => {
-                if (!table.parentElement.classList.contains('table-wrapper')) {
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'table-wrapper';
-                    table.parentNode.insertBefore(wrapper, table);
-                    wrapper.appendChild(table);
+            // ✅ Usar requestAnimationFrame para mejor rendimiento
+            requestAnimationFrame(() => {
+                currentStreamingBubble.innerHTML = content;
+                
+                const tables = currentStreamingBubble.querySelectorAll('table');
+                tables.forEach(table => {
+                    if (!table.parentElement.classList.contains('table-wrapper')) {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'table-wrapper';
+                        table.parentNode.insertBefore(wrapper, table);
+                        wrapper.appendChild(table);
+                    }
+                });
+                
+                // SOLO hacer scroll si el usuario NO scrolleó manualmente
+                // IMPORTANTE: Mantener stream activo siempre, pero scroll solo si no scrolleó
+                if (!userScrolledUp) {
+                    messagesArea.scrollTop = messagesArea.scrollHeight;
                 }
             });
-            
-            // SOLO hacer scroll si el usuario NO scrolleó manualmente
-            if (!userScrolledUp) {
-                requestAnimationFrame(() => {
-                    messagesArea.scrollTop = messagesArea.scrollHeight;
-                });
-            }
         }
 
         function finalizeStreamingBubble(success = true) {
@@ -1050,6 +1221,28 @@
         }
 
         questionInput.focus();
+        
+        // ═══════════════════════════════════════════════════════
+        // PANTALLA DE BIENVENIDA
+        // ═══════════════════════════════════════════════════════
+        function enterLisabella() {
+            const welcomeScreen = document.getElementById('welcomeScreen');
+            welcomeScreen.style.opacity = '0';
+            welcomeScreen.style.transition = 'opacity 0.5s ease';
+            
+            setTimeout(() => {
+                welcomeScreen.classList.add('hidden');
+                questionInput.focus();
+            }, 500);
+        }
+        
+        // Permitir Enter para entrar
+        document.addEventListener('keydown', function(e) {
+            const welcomeScreen = document.getElementById('welcomeScreen');
+            if (!welcomeScreen.classList.contains('hidden') && e.key === 'Enter') {
+                enterLisabella();
+            }
+        });
     </script>
 </body>
 </html>

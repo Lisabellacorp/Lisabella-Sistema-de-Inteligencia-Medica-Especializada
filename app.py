@@ -6,6 +6,7 @@ from datetime import datetime
 # ✅ Imports corregidos
 from src.mistral import MistralClient
 from src.wrapper import Wrapper, Result
+from src.amplitud_detector import evaluar_y_reformular
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -124,22 +125,51 @@ def ask_stream():
                     }) + "\n"
                     return
                 
-                # APPROVED - Streaming real
+                # APPROVED - Verificar amplitud ANTES de consumir tokens
                 domain = classification.get("domain", "medicina general")
                 special_command = classification.get("special_command", None)
+                note_analysis = classification.get("note_analysis", False)
                 
+                # ═══════════════════════════════════════════════════════
+                # DETECCIÓN DE AMPLITUD SEMÁNTICA (antes de consumir tokens)
+                # ═══════════════════════════════════════════════════════
+                # NO aplicar a comandos especiales (notas médicas, valoraciones)
+                if not special_command and not note_analysis:
+                    es_amplia, reformulacion = evaluar_y_reformular(question, domain)
+                    
+                    if es_amplia:
+                        yield json.dumps({
+                            "type": "complete",
+                            "data": {
+                                "status": "reformulate",
+                                "response": reformulacion
+                            }
+                        }) + "\n"
+                        return
+                
+                # Pregunta específica - proceder con streaming
                 yield json.dumps({"type": "init"}) + "\n"
                 
                 # ✅ Stream de Mistral con domain y special_command
+                # IMPORTANTE: Flush inmediato para evitar acumulación
+                import sys
+                chunk_counter = 0
                 for chunk in mistral_client.generate_stream(question, domain, special_command):
                     if chunk == "__STREAM_DONE__":
                         yield json.dumps({"type": "done"}) + "\n"
                         break
                     else:
-                        yield json.dumps({"type": "chunk", "content": chunk}) + "\n"
+                        chunk_data = json.dumps({"type": "chunk", "content": chunk}) + "\n"
+                        yield chunk_data
+                        chunk_counter += 1
+                        
+                        # ✅ Enviar ping cada 50 chunks para mantener conexión activa
+                        # Esto evita que Render.com o el navegador pausen el stream
+                        if chunk_counter % 50 == 0:
+                            yield json.dumps({"type": "ping", "chunk_count": chunk_counter}) + "\n"
                 
                 # Ping final para mantener conexión
-                yield json.dumps({"type": "ping"}) + "\n"
+                yield json.dumps({"type": "ping", "final": True}) + "\n"
                 
             except Exception as e:
                 print(f"❌ Error en streaming: {str(e)}")
@@ -148,7 +178,17 @@ def ask_stream():
                     "message": f"Error del sistema: {str(e)[:200]}"
                 }) + "\n"
         
-        return Response(generate(), mimetype='application/json')
+        # ✅ Mejorar Response para streaming continuo en Render.com
+        response = Response(
+            generate(),
+            mimetype='application/json',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no',  # Deshabilitar buffering en Nginx
+                'Connection': 'keep-alive'
+            }
+        )
+        return response
     
     except Exception as e:
         print(f"❌ Error crítico en /ask_stream: {str(e)}")
