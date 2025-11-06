@@ -34,7 +34,10 @@ ORGANOS_AMPLIOS = [
 
 PALABRAS_AMPLIAS = [
     "estructura de", "estructura del", "estructura de la",
+    "estructura anatomica", "estructura anatómica",
+    "estructura completa", "estructura del",
     "anatomía de", "anatomia de", "anatomía del", "anatomia del",
+    "anatomia completa", "anatomía completa",
     "todo sobre", "toda la", "todo el",
     "completo sobre", "completa de",
     "todo acerca de", "todo lo relacionado",
@@ -174,13 +177,39 @@ def detectar_amplitud(query: str, domain: str) -> int:
     query_lower = query.lower().strip()
     score = 0
     
+    # DEBUG: Logging detallado
+    print(f"🔍 [AMPLITUD] Query analizada: '{query_lower}'")
+    print(f"🔍 [AMPLITUD] Dominio: '{domain}'")
+    
     # ═══════════════════════════════════════════════════════
     # DETECCIÓN 1: Palabras amplias (alta puntuación)
     # ═══════════════════════════════════════════════════════
+    palabra_detectada = None
     for palabra in PALABRAS_AMPLIAS:
         if palabra in query_lower:
+            palabra_detectada = palabra
             score += 3
+            print(f"🔍 [AMPLITUD] ✓ Palabra amplia detectada: '{palabra}' (+3 puntos)")
             break  # Solo contar una vez
+    
+    # DETECCIÓN ADICIONAL: "estructura" + órgano (patrón común)
+    if not palabra_detectada:
+        if "estructura" in query_lower and any(organo in query_lower for organo in ORGANOS_AMPLIOS[:15]):
+            palabra_detectada = "estructura + órgano"
+            score += 3
+            print(f"🔍 [AMPLITUD] ✓ Patrón 'estructura + órgano' detectado (+3 puntos)")
+    
+    # DETECCIÓN ADICIONAL: "anatomia" / "anatomía" + órgano sin más especificación
+    if not palabra_detectada:
+        if ("anatomia" in query_lower or "anatomía" in query_lower) and any(organo in query_lower for organo in ORGANOS_AMPLIOS[:15]):
+            # Verificar que no tenga términos muy específicos
+            if not any(term in query_lower for term in ["irrigación", "irrigacion", "inervación", "inervacion", "cámara", "camara", "válvula", "valvula"]):
+                palabra_detectada = "anatomia + órgano"
+                score += 3
+                print(f"🔍 [AMPLITUD] ✓ Patrón 'anatomía + órgano' detectado (+3 puntos)")
+    
+    if not palabra_detectada:
+        print(f"🔍 [AMPLITUD] ✗ No se detectaron palabras amplias")
     
     # ═══════════════════════════════════════════════════════
     # DETECCIÓN 2: Órganos completos sin especificar
@@ -191,6 +220,8 @@ def detectar_amplitud(query: str, domain: str) -> int:
             organos_encontrados.append(organo)
     
     if organos_encontrados:
+        print(f"🔍 [AMPLITUD] ✓ Órganos detectados: {organos_encontrados}")
+        
         # Si menciona órgano pero no especifica parte/componente
         tiene_especificacion = any([
             "cámara" in query_lower or "camara" in query_lower,
@@ -205,13 +236,19 @@ def detectar_amplitud(query: str, domain: str) -> int:
             "sistema de" in query_lower,
             "mecanismo" in query_lower,
             "proceso" in query_lower,
-            "función de" in query_lower or "funcion de" in query_lower
+            "función de" in query_lower or "funcion de" in query_lower,
+            "irrigación" in query_lower or "irrigacion" in query_lower,
+            "inervación" in query_lower or "inervacion" in query_lower
         ])
         
         if not tiene_especificacion:
             score += 4  # Órgano completo sin especificar
+            print(f"🔍 [AMPLITUD] ✗ Sin especificación (+4 puntos)")
         else:
             score += 1  # Órgano con alguna especificación (menos amplio)
+            print(f"🔍 [AMPLITUD] ✓ Con especificación (+1 punto)")
+    else:
+        print(f"🔍 [AMPLITUD] ✗ No se detectaron órganos amplios")
     
     # ═══════════════════════════════════════════════════════
     # DETECCIÓN 3: Patrones de preguntas ultra amplias
@@ -226,10 +263,16 @@ def detectar_amplitud(query: str, domain: str) -> int:
         r"fisiología completa"
     ]
     
+    patron_detectado = None
     for patron in patrones_ultra_amplios:
         if re.search(patron, query_lower):
+            patron_detectado = patron
             score += 5
+            print(f"🔍 [AMPLITUD] ✓ Patrón ultra amplio detectado: '{patron}' (+5 puntos)")
             break
+    
+    if not patron_detectado:
+        print(f"🔍 [AMPLITUD] ✗ No se detectaron patrones ultra amplios")
     
     # ═══════════════════════════════════════════════════════
     # DETECCIÓN 4: Longitud de pregunta (preguntas muy cortas suelen ser amplias)
@@ -251,9 +294,15 @@ def detectar_amplitud(query: str, domain: str) -> int:
     tiene_termino_especifico = any(term in query_lower for term in terminos_especificos)
     if not tiene_termino_especifico and score > 0:
         score += 1  # Refuerza la amplitud si no hay términos específicos
+        print(f"🔍 [AMPLITUD] ✗ Sin términos específicos (+1 punto refuerzo)")
+    else:
+        if tiene_termino_especifico:
+            print(f"🔍 [AMPLITUD] ✓ Términos específicos detectados (sin refuerzo)")
     
     # Limitar score máximo a 10
-    return min(score, 10)
+    score_final = min(score, 10)
+    print(f"🔍 [AMPLITUD] 📊 Score final: {score_final}/10 (threshold: 7)")
+    return score_final
 
 
 def generar_reformulacion(query: str, domain: str) -> str:

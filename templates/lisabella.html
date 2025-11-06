@@ -9,18 +9,21 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
-            --uas-azul: #003f7f;
-            --uas-dorado: #d4af37;
-            --uas-blanco: #ffffff;
-            --uas-gris: #6c757d;
-            --uas-azul-claro: #4a90e2;
+            /* Paleta Verde Médico Moderno */
+            --primary: #00a86b;
+            --primary-light: #5dd39e;
+            --primary-dark: #008555;
+            --accent: #ffd700;
+            --background: linear-gradient(135deg, #00a86b 0%, #5dd39e 100%);
+            --white: #ffffff;
+            --gray: #6c757d;
             --max-width: 1200px;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
             color: #333;
-            background: linear-gradient(135deg, var(--uas-azul) 0%, var(--uas-azul-claro) 100%);
+            background: var(--background);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -30,7 +33,7 @@
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
             box-shadow: 0 4px 25px rgba(0,0,0,0.15);
-            border-bottom: 3px solid var(--uas-dorado);
+            border-bottom: 3px solid var(--accent);
             position: sticky;
             top: 0;
             z-index: 100;
@@ -47,29 +50,29 @@
             justify-content: center;
             gap: 20px;
         }
-        .logo-uas {
+        .logo-lisabella {
             width: 80px;
             height: 80px;
-            background: var(--uas-azul);
+            background: var(--primary);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: var(--uas-dorado);
+            color: var(--accent);
             font-size: 2rem;
             font-weight: bold;
-            border: 4px solid var(--uas-dorado);
+            border: 4px solid var(--accent);
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             flex-shrink: 0;
         }
         .title-section h1 {
-            color: var(--uas-azul);
+            color: var(--primary);
             font-size: 2rem;
             font-weight: 700;
             margin-bottom: 0.3rem;
         }
         .title-section p {
-            color: var(--uas-gris);
+            color: var(--gray);
             font-size: 0.85rem;
             font-weight: 500;
             line-height: 1.4;
@@ -86,10 +89,10 @@
             min-height: 0;
         }
         .manifesto-box {
-            background: linear-gradient(135deg, rgba(0,63,127,0.95) 0%, rgba(74,144,226,0.95) 100%);
+            background: linear-gradient(135deg, rgba(0,168,107,0.95) 0%, rgba(93,211,158,0.95) 100%);
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
-            border-left: 6px solid var(--uas-dorado);
+            border-left: 6px solid var(--accent);
             padding: 1.5rem 2rem;
             border-radius: 15px;
             color: white;
@@ -116,7 +119,7 @@
             margin: 0;
         }
         .manifesto-box strong {
-            color: var(--uas-dorado);
+            color: var(--accent);
             font-weight: 700;
         }
         .chat-container {
@@ -148,11 +151,11 @@
             background: #f1f1f1;
         }
         .messages-area::-webkit-scrollbar-thumb {
-            background: var(--uas-azul-claro);
+            background: var(--primary-light);
             border-radius: 4px;
         }
         .messages-area::-webkit-scrollbar-thumb:hover {
-            background: var(--uas-azul);
+            background: var(--primary);
         }
         .message {
             display: flex;
@@ -179,7 +182,7 @@
             transition: all 0.3s ease;
         }
         .message.user .message-bubble {
-            background: linear-gradient(45deg, var(--uas-azul), var(--uas-azul-claro));
+            background: linear-gradient(45deg, var(--primary), var(--primary-light));
             color: white;
             border-bottom-right-radius: 5px;
             white-space: pre-wrap;
@@ -195,29 +198,29 @@
             max-width: 100%;
         }
         .message.bot .message-bubble strong {
-            color: var(--uas-azul);
+            color: var(--primary);
         }
         .message.bot .message-bubble h1 {
-            color: var(--uas-azul);
+            color: var(--primary);
             margin: 1.5rem 0 1rem 0;
             font-size: 1.5rem;
-            border-bottom: 3px solid var(--uas-dorado);
+            border-bottom: 3px solid var(--accent);
             padding-bottom: 0.5rem;
         }
         .message.bot .message-bubble h2 {
-            color: var(--uas-azul);
+            color: var(--primary);
             margin: 1.5rem 0 1rem 0;
             font-size: 1.3rem;
-            border-bottom: 2px solid var(--uas-dorado);
+            border-bottom: 2px solid var(--accent);
             padding-bottom: 0.5rem;
         }
         .message.bot .message-bubble h3 {
-            color: var(--uas-azul);
+            color: var(--primary);
             margin: 1rem 0 0.5rem 0;
             font-size: 1.1rem;
         }
         .message.bot .message-bubble h4 {
-            color: var(--uas-azul);
+            color: var(--primary);
             margin: 0.8rem 0 0.4rem 0;
             font-size: 1rem;
         }
@@ -243,11 +246,11 @@
             border-radius: 4px;
         }
         .table-wrapper::-webkit-scrollbar-thumb {
-            background: var(--uas-azul-claro);
+            background: var(--primary-light);
             border-radius: 4px;
         }
         .table-wrapper::-webkit-scrollbar-thumb:hover {
-            background: var(--uas-azul);
+            background: var(--primary);
         }
         .message.bot .message-bubble table {
             width: 100%;
@@ -264,8 +267,8 @@
             vertical-align: top;
         }
         .message.bot .message-bubble table th {
-            background: var(--uas-dorado);
-            color: var(--uas-azul);
+            background: var(--accent);
+            color: var(--primary);
             font-weight: 700;
             position: sticky;
             top: 0;
@@ -278,7 +281,7 @@
         }
         .message.bot .message-bubble table td:first-child {
             font-weight: 600;
-            color: var(--uas-azul);
+            color: var(--primary);
         }
         .message.bot .message-bubble code {
             background: #f4f4f4;
@@ -314,7 +317,7 @@
         }
         .input-field:focus {
             outline: none;
-            border-color: var(--uas-azul);
+            border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(0,63,127,0.1);
         }
         .input-field::-webkit-scrollbar {
@@ -326,7 +329,7 @@
         }
         .send-btn {
             padding: 12px 28px;
-            background: linear-gradient(45deg, var(--uas-azul), var(--uas-azul-claro));
+            background: linear-gradient(45deg, var(--primary), var(--primary-light));
             color: white;
             border: none;
             border-radius: 15px;
@@ -389,7 +392,7 @@
             background: rgba(255,255,255,0.98);
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
-            border-top: 4px solid var(--uas-dorado);
+            border-top: 4px solid var(--accent);
             padding: 2rem;
             text-align: center;
             margin-top: auto;
@@ -401,18 +404,18 @@
         .footer-credit {
             font-size: 1.1rem;
             font-weight: 700;
-            color: var(--uas-azul);
+            color: var(--primary);
             margin: 0.5rem 0;
         }
         .footer-slogan {
             font-size: 1rem;
-            color: var(--uas-dorado);
+            color: var(--accent);
             font-style: italic;
             margin-top: 0.5rem;
         }
         .footer-bleacher {
             font-size: 0.9rem;
-            color: var(--uas-dorado);
+            color: var(--accent);
             font-weight: 600;
             margin-top: 0.8rem;
             letter-spacing: 1px;
@@ -421,14 +424,14 @@
         .footer-disclaimer {
             margin-top: 1.5rem;
             font-size: 0.85rem;
-            color: var(--uas-gris);
+            color: var(--gray);
             line-height: 1.6;
         }
         @media (max-width: 768px) {
             .header-container {
                 padding: 1rem;
             }
-            .logo-uas {
+            .logo-lisabella {
                 width: 60px;
                 height: 60px;
                 font-size: 1.5rem;
@@ -488,10 +491,10 @@
     <header class="header" role="banner">
         <div class="header-container">
             <div class="logo-section">
-                <div class="logo-uas" aria-label="Logo de la Universidad Autónoma de Sinaloa">⚕️</div>
+                <div class="logo-lisabella" aria-label="Logo de Lisabella">💚</div>
                 <div class="title-section">
                     <h1>Lisabella</h1>
-                    <p>Sistema de Inteligencia Médica Especializada | Validado con estándares Joint Commission, AHA/ESC, Mayo Clinic y COFEPRIS</p>
+                    <p>Sistema de Inteligencia Médica Especializada | Diseñado para profesionales de la salud</p>
                 </div>
             </div>
         </div>
@@ -591,13 +594,28 @@
         const btnText = document.getElementById('btnText');
         const BACKEND_URL = 'https://lisabella.onrender.com';
 
-        let userHasScrolled = false;
+        let userScrolledUp = false;
+        let lastScrollTop = 0;
         let currentStreamingBubble = null;
         let accumulatedContent = '';
 
+        // Mejorar detección de scroll manual
         messagesArea.addEventListener('scroll', () => {
-            const isAtBottom = messagesArea.scrollHeight - messagesArea.scrollTop <= messagesArea.clientHeight + 100;
-            userHasScrolled = !isAtBottom;
+            const scrollTop = messagesArea.scrollTop;
+            const scrollHeight = messagesArea.scrollHeight;
+            const clientHeight = messagesArea.clientHeight;
+            
+            // Usuario scrolleó hacia arriba intencionalmente
+            if (scrollTop < lastScrollTop - 10) {
+                userScrolledUp = true;
+            }
+            
+            // Usuario volvió al final (dentro de 100px del bottom)
+            if (scrollHeight - scrollTop - clientHeight < 100) {
+                userScrolledUp = false;
+            }
+            
+            lastScrollTop = scrollTop;
         });
 
         questionInput.addEventListener('input', function() {
@@ -629,7 +647,8 @@
             sendBtn.disabled = true;
             btnText.innerHTML = '<span class="loading-spinner"></span>';
 
-            userHasScrolled = false;
+            userScrolledUp = false;  // Reset del flag cuando se envía nueva pregunta
+            lastScrollTop = 0;
             currentStreamingBubble = null;
             accumulatedContent = '';
 
@@ -840,7 +859,8 @@
                 }
             });
             
-            if (!userHasScrolled) {
+            // SOLO hacer scroll si el usuario NO scrolleó manualmente
+            if (!userScrolledUp) {
                 requestAnimationFrame(() => {
                     messagesArea.scrollTop = messagesArea.scrollHeight;
                 });

@@ -68,15 +68,21 @@ class Lisabella:
             # ═══════════════════════════════════════════════════════
             # NO aplicar a comandos especiales (notas médicas, valoraciones)
             if not special_command and not note_analysis:
+                print(f"🔍 [MAIN] Evaluando amplitud - Pregunta: '{question[:50]}...'")
+                print(f"🔍 [MAIN] Dominio: '{domain}'")
                 es_amplia, reformulacion = evaluar_y_reformular(question, domain)
+                print(f"🔍 [MAIN] Resultado: es_amplia={es_amplia}")
                 
                 if es_amplia:
+                    print(f"🔍 [MAIN] ✓ Interceptando pregunta amplia - retornando reformulación")
                     return {
                         "status": "reformulate",
                         "domain": domain,
                         "confidence": classification.get("confidence", 0.80),
                         "response": reformulacion
                     }
+                else:
+                    print(f"🔍 [MAIN] ✓ Pregunta específica - procediendo a Mistral")
             
             # Generar respuesta
             try:
