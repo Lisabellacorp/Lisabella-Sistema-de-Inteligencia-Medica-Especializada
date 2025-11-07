@@ -57,7 +57,7 @@ class MistralClient:
             max_tokens = 24000  # Notas médicas: extensas pero optimizadas
             temperature = 0.1   # Más determinístico y rápido
         else:
-            max_tokens = 16000  # Preguntas generales: suficiente
+            max_tokens = 24000  # Preguntas generales: permitir respuestas académicas completas
             temperature = self.temp
         
         try:
@@ -165,7 +165,7 @@ class MistralClient:
         if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"]:
             max_tokens = 24000
         else:
-            max_tokens = 16000
+            max_tokens = 24000
 
         for attempt in range(self.max_retries):
             try:
