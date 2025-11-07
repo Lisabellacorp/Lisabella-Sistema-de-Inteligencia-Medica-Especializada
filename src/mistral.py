@@ -31,7 +31,7 @@ class MistralClient:
         self.temp = MISTRAL_TEMP
         self.max_retries = 3
         self.base_retry_delay = 2
-        self.api_timeout = 180  # ✅ 3 minutos para respuestas largas
+        self.api_timeout = 300  # ✅ 5 minutos para respuestas académicas extensas
 
     def _log_token_usage(self, prompt_tokens, completion_tokens, domain):
         """📊 Tracking de uso de tokens"""
