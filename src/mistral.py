@@ -33,6 +33,24 @@ class MistralClient:
         self.base_retry_delay = 2
         self.api_timeout = 300  # ✅ 5 minutos para respuestas académicas extensas
 
+    def _classify_question_type(self, question: str) -> str:
+        """Clasifica la pregunta por complejidad esperada.
+        - operativa: consultas cortas (dosis, definiciones, cálculos rápidos)
+        - academica: múltiples puntos o listas largas
+        - estandar: el resto
+        """
+        q_lower = (question or "").lower()
+        # Operativa: palabras clave de decisiones rápidas
+        if any(word in q_lower for word in [
+            "dosis", "calcular", "cuanto", "cuánto", "que es", "qué es",
+            "define", "definición", "definicion", "posologia", "posología"
+        ]):
+            return "operativa"
+        # Académica: múltiples bullets/líneas
+        if q_lower.count("•") >= 3 or q_lower.count("\n") >= 3 or any(kw in q_lower for kw in ["incluyendo:", "incluye:"]):
+            return "academica"
+        return "estandar"
+
     def _log_token_usage(self, prompt_tokens, completion_tokens, domain):
         """📊 Tracking de uso de tokens"""
         total = prompt_tokens + completion_tokens
@@ -52,13 +70,22 @@ class MistralClient:
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
         
-        # ✅ Ajuste dinámico de tokens y temperatura según comando
+        # ✅ Ajuste dinámico de tokens y temperatura según tipo de pregunta
+        question_type = self._classify_question_type(question)
+        if question_type == "operativa":
+            max_tokens = 800
+            temperature = 0.1
+        elif question_type == "academica":
+            max_tokens = 8000
+            temperature = 0.3
+        else:  # estandar
+            max_tokens = 3000
+            temperature = 0.3
+        
+        # 🚩 Comandos especiales dominan sobre tipo
         if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"]:
-            max_tokens = 24000  # Notas médicas: extensas pero optimizadas
-            temperature = 0.1   # Más determinístico y rápido
-        else:
-            max_tokens = 24000  # Preguntas generales: permitir respuestas académicas completas
-            temperature = self.temp
+            max_tokens = 12000
+            temperature = 0.1
         
         try:
             stream = self.client.chat.stream(
@@ -161,11 +188,18 @@ class MistralClient:
     def generate(self, question, domain, special_command=None):
         """Generar respuesta COMPLETA con retry automático"""
         
-        # ✅ Ajuste dinámico según tipo de comando
+        # ✅ Ajuste dinámico de tokens según tipo de pregunta
+        question_type = self._classify_question_type(question)
+        if question_type == "operativa":
+            max_tokens = 800
+        elif question_type == "academica":
+            max_tokens = 8000
+        else:  # estandar
+            max_tokens = 3000
+
+        # 🚩 Comandos especiales dominan sobre tipo
         if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"]:
-            max_tokens = 24000
-        else:
-            max_tokens = 24000
+            max_tokens = 12000
 
         for attempt in range(self.max_retries):
             try:
