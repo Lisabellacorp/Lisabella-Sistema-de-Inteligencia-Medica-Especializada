@@ -2,13 +2,13 @@ import sys
 sys.path.insert(0, '/home/ray/lisabella')
 
 from src.wrapper import Wrapper, Result
-from src.mistral import MistralClient
+from src.groq import GroqClient
 from src.amplitud_detector import evaluar_y_reformular
 
 class Lisabella:
     def __init__(self):
         self.wrapper = Wrapper()
-        self.mistral = MistralClient()
+        self.groq = GroqClient()
     
     def ask(self, question):
         """Procesar pregunta end-to-end con manejo robusto de errores y comandos especiales"""
@@ -82,11 +82,11 @@ class Lisabella:
                         "response": reformulacion
                     }
                 else:
-                    print(f"🔍 [MAIN] ✓ Pregunta específica - procediendo a Mistral")
+                    print(f"🔍 [MAIN] ✓ Pregunta específica - procediendo a Groq")
             
             # Generar respuesta
             try:
-                response = self.mistral.generate(
+                response = self.groq.generate(
                     question=question,
                     domain=domain,
                     special_command=special_command
@@ -199,7 +199,7 @@ Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guía
         for section in sections:
             try:
                 # Generar contenido COMPLETO de la sección
-                content = self.mistral.generate_chunk(
+                content = self.groq.generate_chunk(
                     prompt=section['prompt'],
                     domain=domain,
                     max_tokens=section['max_tokens']
@@ -310,7 +310,7 @@ Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guía
         # Generar cada sección
         for title, prompt, max_tok in sections:
             try:
-                content = self.mistral.generate_chunk(
+                content = self.groq.generate_chunk(
                     prompt=prompt,
                     domain=domain,
                     max_tokens=max_tok

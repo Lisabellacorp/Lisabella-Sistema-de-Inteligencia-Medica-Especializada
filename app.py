@@ -4,14 +4,14 @@ import json
 from datetime import datetime
 
 # ✅ Imports corregidos
-from src.mistral import MistralClient
+from src.groq import GroqClient
 from src.wrapper import Wrapper, Result
 from src.amplitud_detector import evaluar_y_reformular
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
 # --- Inicializar clientes ---
-mistral_client = MistralClient()
+groq_client = GroqClient()
 wrapper = Wrapper()
 
 print("✅ Lisabella iniciada correctamente")
@@ -64,7 +64,7 @@ def ask():
         domain = classification.get("domain", "medicina general")
         special_command = classification.get("special_command", None)
         
-        response = mistral_client.generate(question, domain, special_command)
+        response = groq_client.generate(question, domain, special_command)
         
         return jsonify({
             "status": "approved",
@@ -154,7 +154,7 @@ def ask_stream():
                 # IMPORTANTE: Flush inmediato para evitar acumulación
                 import sys
                 chunk_counter = 0
-                for chunk in mistral_client.generate_stream(question, domain, special_command):
+                for chunk in groq_client.generate_stream(question, domain, special_command):
                     if chunk == "__STREAM_DONE__":
                         yield json.dumps({"type": "done"}) + "\n"
                         break
