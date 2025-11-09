@@ -20,7 +20,7 @@ langchain==0.1.0
 # ========================================
 # NLP Clínico (Procesamiento de Texto Médico)
 # ========================================
-spacy==3.7.2
+spacy==3.6.1  # Cambiado a versión compatible con scispacy
 scispacy==0.5.3
 medspacy==0.2.0
 negspacy==1.0.4
@@ -30,7 +30,6 @@ torch==2.2.0
 # ========================================
 # Terminología Médica (SNOMED CT, UMLS, ICD-10)
 # ========================================
-# PyMedTermino2 eliminado - usar scispacy/medspacy como alternativa
 fhir.resources==7.1.0
 
 # ========================================
