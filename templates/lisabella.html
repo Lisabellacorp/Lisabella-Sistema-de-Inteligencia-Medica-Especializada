@@ -766,7 +766,8 @@
         const questionInput = document.getElementById('questionInput');
         const sendBtn = document.getElementById('sendBtn');
         const btnText = document.getElementById('btnText');
-        const BACKEND_URL = 'https://lisabella.onrender.com';
+        // Usar el mismo dominio donde está desplegado el frontend
+        const BACKEND_URL = window.location.origin;
 
         let userScrolledUp = false;
         let lastScrollTop = 0;
