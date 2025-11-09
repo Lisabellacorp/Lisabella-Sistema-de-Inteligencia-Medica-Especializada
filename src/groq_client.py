@@ -9,7 +9,7 @@ class GroqClient:
         if not api_key:
             raise Exception("GROQ_API_KEY no configurada")
         self.client = Groq(api_key=api_key)
-        self.model = os.environ.get("GROQ_MODEL", "llama-3.1-70b-versatile")
+        self.model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
         self.temp = float(os.environ.get("GROQ_TEMP", "0.3"))
         self.max_retries = 3
         self.base_retry_delay = 2
