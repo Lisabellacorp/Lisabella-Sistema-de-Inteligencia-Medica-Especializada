@@ -1,29 +1,47 @@
 from flask import Flask, render_template, request, jsonify, Response
+import os
 import time
 import json
 from datetime import datetime
+from dotenv import load_dotenv
+
+# ✅ Cargar variables de entorno ANTES de importar clientes
+load_dotenv()
 
 # ✅ Imports corregidos
-from src.groq import GroqClient
+from src.groq_client import GroqClient  # ✅ CORREGIDO: era src.groq
 from src.wrapper import Wrapper, Result
 from src.amplitud_detector import evaluar_y_reformular
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
 # --- Inicializar clientes ---
-groq_client = GroqClient()
-wrapper = Wrapper()
-
-print("✅ Lisabella iniciada correctamente")
-print(f"📊 Wrapper stats: {wrapper.get_stats()}")
+try:
+    groq_client = GroqClient()
+    wrapper = Wrapper()
+    print("✅ Lisabella iniciada correctamente")
+    print(f"📊 Wrapper stats: {wrapper.get_stats()}")
+except Exception as e:
+    print(f"❌ Error al inicializar: {str(e)}")
+    print("⚠️ Verifica que GROQ_API_KEY esté configurada")
+    groq_client = None
+    wrapper = None
 
 # --- Healthcheck ---
 @app.route('/health')
 def health():
+    if not groq_client or not wrapper:
+        return jsonify({
+            "status": "error",
+            "message": "Sistema no inicializado - verifica GROQ_API_KEY",
+            "timestamp": str(datetime.now())
+        }), 500
+    
     return jsonify({
         "status": "ok",
         "timestamp": str(datetime.now()),
-        "wrapper_stats": wrapper.get_stats()
+        "wrapper_stats": wrapper.get_stats(),
+        "model": groq_client.model
     })
 
 # --- Frontend principal ---
@@ -35,6 +53,12 @@ def index():
 @app.route('/ask', methods=['POST'])
 def ask():
     """API sin streaming - mantener por compatibilidad"""
+    if not groq_client or not wrapper:
+        return jsonify({
+            "status": "error",
+            "response": "⚠️ Sistema no inicializado"
+        }), 500
+    
     try:
         data = request.get_json()
         question = data.get("question", "")
@@ -83,6 +107,12 @@ def ask():
 @app.route('/ask_stream', methods=['POST'])
 def ask_stream():
     """API con streaming en tiempo real"""
+    if not groq_client or not wrapper:
+        return jsonify({
+            "status": "error",
+            "response": "⚠️ Sistema no inicializado"
+        }), 500
+    
     try:
         data = request.get_json()
         question = data.get("question", "")
@@ -150,9 +180,7 @@ def ask_stream():
                 # Pregunta específica - proceder con streaming
                 yield json.dumps({"type": "init"}) + "\n"
                 
-                # ✅ Stream de Mistral con domain y special_command
-                # IMPORTANTE: Flush inmediato para evitar acumulación
-                import sys
+                # ✅ Stream de Groq con domain y special_command
                 chunk_counter = 0
                 for chunk in groq_client.generate_stream(question, domain, special_command):
                     if chunk == "__STREAM_DONE__":
@@ -164,7 +192,6 @@ def ask_stream():
                         chunk_counter += 1
                         
                         # ✅ Enviar ping cada 50 chunks para mantener conexión activa
-                        # Esto evita que Render.com o el navegador pausen el stream
                         if chunk_counter % 50 == 0:
                             yield json.dumps({"type": "ping", "chunk_count": chunk_counter}) + "\n"
                 
@@ -173,18 +200,20 @@ def ask_stream():
                 
             except Exception as e:
                 print(f"❌ Error en streaming: {str(e)}")
+                import traceback
+                traceback.print_exc()
                 yield json.dumps({
                     "type": "error",
                     "message": f"Error del sistema: {str(e)[:200]}"
                 }) + "\n"
         
-        # ✅ Mejorar Response para streaming continuo en Render.com
+        # ✅ Response optimizado para streaming
         response = Response(
             generate(),
             mimetype='application/json',
             headers={
                 'Cache-Control': 'no-cache',
-                'X-Accel-Buffering': 'no',  # Deshabilitar buffering en Nginx
+                'X-Accel-Buffering': 'no',
                 'Connection': 'keep-alive'
             }
         )
@@ -192,6 +221,8 @@ def ask_stream():
     
     except Exception as e:
         print(f"❌ Error crítico en /ask_stream: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 # --- Favicon (evitar 404) ---
@@ -200,9 +231,9 @@ def favicon():
     return '', 204
 
 # --- Crear directorio de logs si no existe ---
-import os
 os.makedirs('logs', exist_ok=True)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)  # ✅ debug=False en producción
+    print(f"🚀 Iniciando servidor en puerto {port}")
+    app.run(host="0.0.0.0", port=port, debug=False)
