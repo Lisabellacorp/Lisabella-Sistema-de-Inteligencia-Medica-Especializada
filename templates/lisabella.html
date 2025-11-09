@@ -766,9 +766,8 @@
         const questionInput = document.getElementById('questionInput');
         const sendBtn = document.getElementById('sendBtn');
         const btnText = document.getElementById('btnText');
-        // Usar el mismo dominio donde está desplegado el frontend
-        const BACKEND_URL = window.location.origin;
-
+        const BACKEND_URL = `${window.location.protocol}://${window.location.host}`;
+        
         let userScrolledUp = false;
         let lastScrollTop = 0;
         let currentStreamingBubble = null;
