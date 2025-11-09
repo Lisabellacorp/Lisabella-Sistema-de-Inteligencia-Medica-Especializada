@@ -22,8 +22,8 @@ spacy==3.7.2
 scispacy==0.5.3
 medspacy==0.2.0
 negspacy==1.0.4
-transformers==4.35.0
-torch==2.1.0
+transformers==4.37.0
+torch==2.2.0
 
 # Modelos de scispacy (instalar después con pip):
 # python -m spacy download en_core_sci_sm
