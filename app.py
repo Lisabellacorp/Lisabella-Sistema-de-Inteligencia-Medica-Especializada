@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 # ✅ Cargar variables de entorno ANTES de importar clientes
 load_dotenv()
 
-# ✅ Imports corregidos
-from src.groq_client import GroqClient  # ✅ CORREGIDO: era src.groq
+# ✅ CORREGIDO: src.groq_client (no src.groq)
+from src.groq_client import GroqClient
 from src.wrapper import Wrapper, Result
 from src.amplitud_detector import evaluar_y_reformular
 
@@ -19,11 +19,12 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 try:
     groq_client = GroqClient()
     wrapper = Wrapper()
-    print("✅ Lisabella iniciada correctamente")
+    print("✅ Lisabella iniciada correctamente con Groq")
     print(f"📊 Wrapper stats: {wrapper.get_stats()}")
+    print(f"🤖 Modelo: {groq_client.model}")
 except Exception as e:
     print(f"❌ Error al inicializar: {str(e)}")
-    print("⚠️ Verifica que GROQ_API_KEY esté configurada")
+    print("⚠️ Verifica que GROQ_API_KEY esté configurada en Render")
     groq_client = None
     wrapper = None
 
@@ -33,7 +34,7 @@ def health():
     if not groq_client or not wrapper:
         return jsonify({
             "status": "error",
-            "message": "Sistema no inicializado - verifica GROQ_API_KEY",
+            "message": "Sistema no inicializado - verifica GROQ_API_KEY en Environment Variables",
             "timestamp": str(datetime.now())
         }), 500
     
@@ -41,7 +42,8 @@ def health():
         "status": "ok",
         "timestamp": str(datetime.now()),
         "wrapper_stats": wrapper.get_stats(),
-        "model": groq_client.model
+        "model": groq_client.model,
+        "provider": "Groq"
     })
 
 # --- Frontend principal ---
@@ -56,7 +58,7 @@ def ask():
     if not groq_client or not wrapper:
         return jsonify({
             "status": "error",
-            "response": "⚠️ Sistema no inicializado"
+            "response": "⚠️ Sistema no inicializado. Verifica GROQ_API_KEY en Render."
         }), 500
     
     try:
@@ -106,11 +108,11 @@ def ask():
 # --- API Streaming (PRINCIPAL) ---
 @app.route('/ask_stream', methods=['POST'])
 def ask_stream():
-    """API con streaming en tiempo real"""
+    """API con streaming en tiempo real usando Groq"""
     if not groq_client or not wrapper:
         return jsonify({
             "status": "error",
-            "response": "⚠️ Sistema no inicializado"
+            "response": "⚠️ Sistema no inicializado. Verifica GROQ_API_KEY en Render."
         }), 500
     
     try:
@@ -131,7 +133,8 @@ def ask_stream():
                 yield json.dumps({
                     "type": "metadata",
                     "domain": classification.get("domain", "medicina general"),
-                    "confidence": classification.get("confidence", 0.5)
+                    "confidence": classification.get("confidence", 0.5),
+                    "provider": "Groq"
                 }) + "\n"
                 
                 # Si rechazada o reformular, enviar respuesta completa
@@ -207,7 +210,7 @@ def ask_stream():
                     "message": f"Error del sistema: {str(e)[:200]}"
                 }) + "\n"
         
-        # ✅ Response optimizado para streaming
+        # ✅ Response optimizado para streaming continuo
         response = Response(
             generate(),
             mimetype='application/json',
@@ -235,5 +238,5 @@ os.makedirs('logs', exist_ok=True)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"🚀 Iniciando servidor en puerto {port}")
+    print(f"🚀 Iniciando Lisabella con Groq en puerto {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
