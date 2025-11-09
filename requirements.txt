@@ -27,16 +27,15 @@ negspacy==1.0.4
 transformers==4.37.0
 torch==2.2.0
 
-# Modelos de scispacy (instalar después de desplegar):
+# Modelos de scispacy (instalar después del despliegue)
 # python -m spacy download en_core_sci_sm
 # pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.3/en_core_sci_sm-0.5.3.tar.gz
 
 # ========================================
 # Terminología Médica (SNOMED CT, UMLS, ICD-10)
 # ========================================
-# Uso directo del ZIP para evitar errores de autenticación en entornos CI/CD
-https://github.com/Jean-Baptiste-Camps/PyMedTermino2/archive/refs/heads/master.zip
-# fhir.resources==7.1.0  # Descomentar cuando integres compatibilidad FHIR
+https://github.com/Jean-Baptiste-Camps/PyMedTermino2/archive/refs/heads/main.zip
+# fhir.resources==7.1.0  # Descomentar cuando integres FHIR
 
 # ========================================
 # Búsqueda Biomédica (Literatura Científica)
@@ -56,7 +55,7 @@ lifelines==0.27.8
 # ========================================
 # Imagenología Médica (DICOM)
 # ========================================
-# pydicom==2.4.4  # Descomentar cuando integres imágenes DICOM
+# pydicom==2.4.4  # Descomentar cuando integres imágenes
 # SimpleITK==2.3.1  # Descomentar si procesas imágenes médicas
 
 # ========================================
@@ -66,5 +65,5 @@ plotly==5.18.0
 # streamlit==1.29.0  # Descomentar si deseas dashboards interactivos
 
 # ========================================
-# Fin del archivo de dependencias
+# Fin del archivo
 # ========================================
