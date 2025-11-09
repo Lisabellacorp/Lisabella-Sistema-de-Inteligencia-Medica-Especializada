@@ -2,6 +2,15 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from groq import Groq
+from typing import Optional
+
+# Intentar importar RAG (opcional)
+try:
+    from src.rag_engine import RAGEngine
+    RAG_AVAILABLE = True
+except ImportError:
+    RAG_AVAILABLE = False
+    print("⚠️ RAG Engine no disponible - funcionando sin base de conocimiento")
 
 class GroqClient:
     def __init__(self):
@@ -14,6 +23,15 @@ class GroqClient:
         self.max_retries = 3
         self.base_retry_delay = 2
         self.api_timeout = 300
+        
+        # Inicializar RAG si está disponible
+        self.rag_engine = None
+        if RAG_AVAILABLE:
+            try:
+                self.rag_engine = RAGEngine()
+                print(f"✅ RAG Engine inicializado: {self.rag_engine.get_stats()}")
+            except Exception as e:
+                print(f"⚠️ Error al inicializar RAG: {e}")
 
     def _classify_question_type(self, question: str) -> str:
         q_lower = (question or "").lower()
@@ -35,7 +53,10 @@ class GroqClient:
             pass
 
     def generate_stream(self, question, domain, special_command=None):
-        system_msg = self._build_system_prompt(domain, special_command)
+        # Buscar contexto en RAG si está disponible
+        rag_context = self._get_rag_context(question) if self.rag_engine else None
+        
+        system_msg = self._build_system_prompt(domain, special_command, rag_context)
         user_msg = self._build_user_prompt(question, domain, special_command)
         question_type = self._classify_question_type(question)
         # Aumentar tokens para permitir respuestas completas sin alucinaciones
@@ -101,7 +122,10 @@ class GroqClient:
         return "⏳ **Sistema Saturado**"
 
     def _call_groq_api(self, question, domain, special_command, max_tokens=3000):
-        system_msg = self._build_system_prompt(domain, special_command)
+        # Buscar contexto en RAG si está disponible
+        rag_context = self._get_rag_context(question) if self.rag_engine else None
+        
+        system_msg = self._build_system_prompt(domain, special_command, rag_context)
         user_msg = self._build_user_prompt(question, domain, special_command)
         temperature = 0.1 if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"] else self.temp
         response = self.client.chat.completions.create(
@@ -128,7 +152,21 @@ class GroqClient:
         )
         return response.choices[0].message.content
 
-    def _build_system_prompt(self, domain, special_command=None):
+    def _get_rag_context(self, question: str) -> Optional[str]:
+        """Buscar contexto relevante en la base de conocimiento RAG"""
+        if not self.rag_engine:
+            return None
+        
+        try:
+            context = self.rag_engine.get_context_for_query(question, min_relevance=0.7)
+            if context:
+                print(f"📚 RAG: Contexto encontrado para '{question[:50]}...'")
+            return context
+        except Exception as e:
+            print(f"⚠️ Error en RAG search: {e}")
+            return None
+    
+    def _build_system_prompt(self, domain, special_command=None, rag_context=None):
         if special_command == "revision_nota":
             return """Eres auditor médico JCI/COFEPRIS. Evalúa nota con estándares completos: datos paciente, motivo consulta, padecimiento, antecedentes, exploración, diagnóstico, plan, legal. Formato: Componentes Presentes, Faltantes, Errores, Cumplimiento %, Recomendaciones."""
         elif special_command == "correccion_nota":
@@ -142,8 +180,16 @@ class GroqClient:
         else:
             return self._get_base_prompt(domain)
 
-    def _get_base_prompt(self, domain):
-        return f"""Eres Lisabella, asistente médico especializado en {domain}.
+    def _get_base_prompt(self, domain, rag_context=None):
+        base = f"""Eres Lisabella, asistente médico especializado en {domain}.
+
+{rag_context if rag_context else ''}
+
+""" if rag_context else f"""Eres Lisabella, asistente médico especializado en {domain}.
+
+"""
+        
+        return base + """
 
 **ESTRUCTURA OBLIGATORIA**:
 1. **Definición/Concepto**: Breve y precisa
