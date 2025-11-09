@@ -9,7 +9,6 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
-            /* Paleta Verde Médico Moderno */
             --primary: #00a86b;
             --primary-light: #5dd39e;
             --primary-dark: #008555;
@@ -88,12 +87,9 @@
             gap: 1.5rem;
             min-height: 0;
         }
-        
-        /* Ocultar contenido principal hasta que se entre */
         main.main-container {
             display: none;
         }
-        
         main.main-container.visible {
             display: flex;
         }
@@ -442,6 +438,107 @@
             color: var(--gray);
             line-height: 1.6;
         }
+        .welcome-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--background);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            padding: 2rem;
+            overflow-y: auto;
+            animation: fadeIn 0.8s ease;
+        }
+        .welcome-screen.hidden {
+            display: none;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .welcome-content {
+            max-width: 800px;
+            background: rgba(255,255,255,0.98);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 3rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            animation: slideUp 0.8s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .welcome-logo {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .welcome-title {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: 2rem;
+            font-weight: 700;
+        }
+        .welcome-manifesto {
+            text-align: left;
+            line-height: 1.9;
+            color: #333;
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: rgba(0,168,107,0.05);
+            border-radius: 15px;
+            border-left: 6px solid var(--primary);
+        }
+        .welcome-manifesto p {
+            margin-bottom: 1.5rem;
+        }
+        .welcome-manifesto strong {
+            color: var(--primary-dark);
+            font-weight: 700;
+        }
+        .welcome-manifesto .highlight {
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 1.2rem;
+            text-align: center;
+            margin: 2rem 0;
+            padding: 1rem;
+            background: rgba(255,215,0,0.2);
+            border-radius: 10px;
+        }
+        .welcome-button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 1rem 3rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,168,107,0.3);
+            margin-top: 1rem;
+        }
+        .welcome-button:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,168,107,0.4);
+        }
+        .welcome-button:active {
+            transform: translateY(0);
+        }
         @media (max-width: 768px) {
             .header-container {
                 padding: 1rem;
@@ -487,6 +584,16 @@
                 width: 100%;
                 justify-content: center;
             }
+            .welcome-content {
+                padding: 2rem 1.5rem;
+            }
+            .welcome-title {
+                font-size: 2rem;
+            }
+            .welcome-manifesto {
+                font-size: 1rem;
+                padding: 1.5rem;
+            }
         }
         @media (max-width: 480px) {
             .chat-container {
@@ -500,143 +607,9 @@
                 padding: 0.75rem;
             }
         }
-        /* ═══════════════════════════════════════════════════════
-           PANTALLA DE BIENVENIDA
-           ═══════════════════════════════════════════════════════ */
-        .welcome-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--background);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            padding: 2rem;
-            overflow-y: auto;
-            animation: fadeIn 0.8s ease;
-        }
-        
-        .welcome-screen.hidden {
-            display: none;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        .welcome-content {
-            max-width: 800px;
-            background: rgba(255,255,255,0.98);
-            backdrop-filter: blur(20px);
-            border-radius: 20px;
-            padding: 3rem;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            text-align: center;
-            animation: slideUp 0.8s ease;
-        }
-        
-        @keyframes slideUp {
-            from { transform: translateY(30px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        
-        .welcome-logo {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-        
-        .welcome-title {
-            font-size: 2.5rem;
-            color: var(--primary);
-            margin-bottom: 2rem;
-            font-weight: 700;
-        }
-        
-        .welcome-manifesto {
-            text-align: left;
-            line-height: 1.9;
-            color: #333;
-            font-size: 1.1rem;
-            margin-bottom: 2rem;
-            padding: 2rem;
-            background: rgba(0,168,107,0.05);
-            border-radius: 15px;
-            border-left: 6px solid var(--primary);
-        }
-        
-        .welcome-manifesto p {
-            margin-bottom: 1.5rem;
-        }
-        
-        .welcome-manifesto strong {
-            color: var(--primary-dark);
-            font-weight: 700;
-        }
-        
-        .welcome-manifesto .highlight {
-            color: var(--primary);
-            font-weight: 700;
-            font-size: 1.2rem;
-            text-align: center;
-            margin: 2rem 0;
-            padding: 1rem;
-            background: rgba(255,215,0,0.2);
-            border-radius: 10px;
-        }
-        
-        .welcome-button {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 1rem 3rem;
-            font-size: 1.2rem;
-            font-weight: 600;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0,168,107,0.3);
-            margin-top: 1rem;
-        }
-        
-        .welcome-button:hover {
-            background: var(--primary-dark);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,168,107,0.4);
-        }
-        
-        .welcome-button:active {
-            transform: translateY(0);
-        }
-        
-        @media (max-width: 768px) {
-            .welcome-content {
-                padding: 2rem 1.5rem;
-            }
-            .welcome-title {
-                font-size: 2rem;
-            }
-            .welcome-manifesto {
-                font-size: 1rem;
-                padding: 1.5rem;
-            }
-        }
     </style>
 </head>
 <body>
-    <!-- ═══════════════════════════════════════════════════════
-         PANTALLA DE BIENVENIDA
-         ═══════════════════════════════════════════════════════ -->
     <div class="welcome-screen" id="welcomeScreen">
         <div class="welcome-content">
             <div class="welcome-logo">💚</div>
@@ -766,25 +739,22 @@
         const questionInput = document.getElementById('questionInput');
         const sendBtn = document.getElementById('sendBtn');
         const btnText = document.getElementById('btnText');
-        const BACKEND_URL = `${window.location.protocol}://${window.location.host}`;
+        const BACKEND_URL = window.location.origin; // ✅ CORREGIDO
         
         let userScrolledUp = false;
         let lastScrollTop = 0;
         let currentStreamingBubble = null;
         let accumulatedContent = '';
 
-        // Mejorar detección de scroll manual
         messagesArea.addEventListener('scroll', () => {
             const scrollTop = messagesArea.scrollTop;
             const scrollHeight = messagesArea.scrollHeight;
             const clientHeight = messagesArea.clientHeight;
             
-            // Usuario scrolleó hacia arriba intencionalmente
             if (scrollTop < lastScrollTop - 10) {
                 userScrolledUp = true;
             }
             
-            // Usuario volvió al final (dentro de 100px del bottom)
             if (scrollHeight - scrollTop - clientHeight < 100) {
                 userScrolledUp = false;
             }
@@ -821,7 +791,7 @@
             sendBtn.disabled = true;
             btnText.innerHTML = '<span class="loading-spinner"></span>';
 
-            userScrolledUp = false;  // Reset del flag cuando se envía nueva pregunta
+            userScrolledUp = false;
             lastScrollTop = 0;
             currentStreamingBubble = null;
             accumulatedContent = '';
@@ -869,7 +839,7 @@
             let streamCompleted = false;
             let chunkCount = 0;
             let lastUpdateTime = Date.now();
-            const TIMEOUT_MS = 300000;  // 5 minutos
+            const TIMEOUT_MS = 300000;
 
             const timeoutCheck = setInterval(() => {
                 if (!streamCompleted && currentStreamingBubble && (Date.now() - lastUpdateTime > TIMEOUT_MS)) {
@@ -916,7 +886,6 @@
                                 chunkCount = 0;
                             }
                             else if (data.type === 'chunk') {
-                                // ✅ Procesar chunk inmediatamente sin acumular
                                 if (data.content && currentStreamingBubble) {
                                     let cleanContent = data.content;
                                     const hasEndSignal = cleanContent.includes('__STREAM_DONE__') || 
@@ -935,10 +904,8 @@
                                         console.log(`📝 Chunk ${chunkCount} (${cleanContent.length} chars)`);
                                         updateStreamingBubble(formatMarkdown(accumulatedContent));
                                         
-                                        // Forzar renderizado cada 10 chunks para evitar lag
                                         if (chunkCount % 10 === 0) {
                                             requestAnimationFrame(() => {
-                                                // Mantener scroll si usuario no scrolleó
                                                 if (!userScrolledUp) {
                                                     messagesArea.scrollTop = messagesArea.scrollHeight;
                                                 }
@@ -1031,7 +998,6 @@
         function updateStreamingBubble(content) {
             if (!currentStreamingBubble) return;
             
-            // ✅ Usar requestAnimationFrame para mejor rendimiento
             requestAnimationFrame(() => {
                 currentStreamingBubble.innerHTML = content;
                 
@@ -1045,8 +1011,6 @@
                     }
                 });
                 
-                // SOLO hacer scroll si el usuario NO scrolleó manualmente
-                // IMPORTANTE: Mantener stream activo siempre, pero scroll solo si no scrolleó
                 if (!userScrolledUp) {
                     messagesArea.scrollTop = messagesArea.scrollHeight;
                 }
@@ -1237,9 +1201,6 @@
 
         questionInput.focus();
         
-        // ═══════════════════════════════════════════════════════
-        // PANTALLA DE BIENVENIDA
-        // ═══════════════════════════════════════════════════════
         function enterLisabella() {
             const welcomeScreen = document.getElementById('welcomeScreen');
             const mainContainer = document.querySelector('main.main-container');
@@ -1257,13 +1218,10 @@
                 welcomeScreen.classList.add('hidden');
                 mainContainer.classList.add('visible');
                 
-                // Mostrar header también
                 if (header) {
                     header.style.display = 'block';
                 }
                 
-                // Asegurar que el input esté disponible
-                // NOTA: Sin localStorage - la bienvenida aparece en cada recarga
                 setTimeout(() => {
                     if (questionInput) {
                         questionInput.focus();
@@ -1272,10 +1230,6 @@
             }, 500);
         }
         
-        // Pantalla de bienvenida siempre visible al cargar
-        // (sin localStorage para que aparezca en cada recarga)
-        
-        // Permitir Enter para entrar
         document.addEventListener('keydown', function(e) {
             const welcomeScreen = document.getElementById('welcomeScreen');
             if (!welcomeScreen.classList.contains('hidden') && e.key === 'Enter') {
