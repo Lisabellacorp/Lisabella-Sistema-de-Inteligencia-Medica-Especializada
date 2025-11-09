@@ -32,7 +32,7 @@ torch==2.2.0
 # ========================================
 # Terminología Médica (SNOMED, UMLS, ICD-10)
 # ========================================
-git+https://github.com/Jean-Baptiste-Camps/PyMedTermino2.git@16a3d0d#egg=pymedtermino2
+https://github.com/Jean-Baptiste-Camps/PyMedTermino2/archive/16a3d0d.zip#egg=pymedtermino2
 # fhir.resources==7.1.0  # Descomentar cuando integres FHIR
 
 # ========================================
