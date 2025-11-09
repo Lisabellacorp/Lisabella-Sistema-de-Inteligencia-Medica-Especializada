@@ -2,7 +2,7 @@ import sys
 sys.path.insert(0, '/home/ray/lisabella')
 
 from src.wrapper import Wrapper, Result
-from src.groq import GroqClient
+from src.groq_client import GroqClient  # ✅ CORREGIDO: era src.groq
 from src.amplitud_detector import evaluar_y_reformular
 
 class Lisabella:
@@ -100,9 +100,9 @@ class Lisabella:
                     "response": response
                 }
                 
-            except Exception as mistral_error:
-                # Error específico de Mistral API
-                print(f"❌ Error en Mistral API: {str(mistral_error)}")
+            except Exception as groq_error:  # ✅ CORREGIDO: era mistral_error
+                # Error específico de Groq API
+                print(f"❌ Error en Groq API: {str(groq_error)}")
                 return {
                     "status": "error",
                     "domain": domain,
@@ -110,7 +110,7 @@ class Lisabella:
 
 Ocurrió un problema al comunicarse con el servicio de inteligencia artificial.
 
-**Detalles técnicos**: {str(mistral_error)[:150]}
+**Detalles técnicos**: {str(groq_error)[:150]}
 
 **Sugerencias**:
 • Intenta reformular tu pregunta
@@ -154,7 +154,7 @@ Incluye:
 - Terminología técnica precisa
 
 Responde con rigor académico y cita fuentes al final.""",
-                'max_tokens': 1200  # Espacio completo para definición detallada
+                'max_tokens': 1200
             },
             {
                 'title': '## 🔬 Detalles Clínicos',
@@ -166,7 +166,7 @@ Responde con rigor académico y cita fuentes al final.""",
 - Cuadro clínico típico
 
 Usa tablas, listas y formato markdown. Cita fuentes.""",
-                'max_tokens': 1500  # Más espacio para detalles complejos
+                'max_tokens': 1500
             },
             {
                 'title': '## 💊 Aplicación Práctica',
@@ -178,7 +178,7 @@ Usa tablas, listas y formato markdown. Cita fuentes.""",
 - Pronóstico y seguimiento
 
 Sé específico con dosis, vías y duraciones. Cita guías clínicas.""",
-                'max_tokens': 1500  # Espacio para detalles terapéuticos
+                'max_tokens': 1500
             },
             {
                 'title': '## ⚠️ Advertencias y Referencias',
@@ -192,22 +192,18 @@ Sé específico con dosis, vías y duraciones. Cita guías clínicas.""",
 
 **FUENTES BIBLIOGRÁFICAS:**
 Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guías ESC/AHA, UpToDate, etc.)""",
-                'max_tokens': 1000  # Advertencias y fuentes
+                'max_tokens': 1000
             }
         ]
         
         for section in sections:
             try:
-                # Generar contenido COMPLETO de la sección
                 content = self.groq.generate_chunk(
                     prompt=section['prompt'],
                     domain=domain,
                     max_tokens=section['max_tokens']
                 )
-                
-                # Devolver título + contenido
                 yield f"{section['title']}\n\n{content}"
-                
             except Exception as e:
                 print(f"❌ Error generando chunk: {str(e)}")
                 yield f"{section['title']}\n\n⚠️ Error al generar esta sección."
@@ -251,7 +247,6 @@ Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guía
             ]
         
         elif special_command == "elaboracion_nota":
-            # Para elaboración, generar secciones SOAP completas
             sections = [
                 ('## DATOS Y SUBJETIVO (S)', 
                  f"Genera sección completa de DATOS DEL PACIENTE y SUBJETIVO para:\n\n{question}\n\nUsa formato profesional con todos los campos.", 
@@ -303,7 +298,6 @@ Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guía
             ]
         
         else:
-            # Fallback a estándar
             yield from self.generate_standard_chunks(question, domain)
             return
         
@@ -400,7 +394,7 @@ Modo educativo con analogías, ejemplos clínicos y correlación práctica.
     
     def cli(self):
         """Modo interactivo para pruebas locales"""
-        print("\n🏥 Lisabella - Asistente Médico IA")
+        print("\n🏥 Lisabella - Asistente Médico IA (Groq)")
         print("=" * 60)
         print("Comandos disponibles:")
         print("  • Pregunta médica normal")
@@ -435,7 +429,6 @@ Modo educativo con analogías, ejemplos clínicos y correlación práctica.
                 
                 print("\n" + "=" * 60)
                 
-                # Mostrar dominio solo en modo debug
                 if result.get("special_command"):
                     print(f"🔧 Comando: {result['special_command']}")
                 
