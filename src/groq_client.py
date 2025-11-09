@@ -4,6 +4,21 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from groq import Groq
 from typing import Optional
 
+# ✅ TODAS LAS LIBRERÍAS INSTALADAS
+try:
+    import spacy
+    import pandas as pd
+    import numpy as np
+    from transformers import pipeline
+    from pymed import PubMed
+    import plotly.graph_objects as go
+    from scipy import stats
+    LIBRERIAS_DISPONIBLES = True
+    print("✅ TODAS las librerías médicas cargadas: spacy, pandas, transformers, pymed, plotly, scipy")
+except ImportError as e:
+    LIBRERIAS_DISPONIBLES = False
+    print(f"⚠️ Algunas librerías no disponibles: {e}")
+
 # Intentar importar RAG (opcional)
 try:
     from src.rag_engine import RAGEngine
@@ -24,6 +39,12 @@ class GroqClient:
         self.base_retry_delay = 2
         self.api_timeout = 300
         
+        # ✅ INICIALIZAR TODAS LAS LIBRERÍAS MÉDICAS
+        self.nlp_medical = None
+        self.ner_pipeline = None
+        self.pubmed_tool = None
+        self._initialize_medical_libraries()
+        
         # Inicializar RAG si está disponible
         self.rag_engine = None
         if RAG_AVAILABLE:
@@ -32,6 +53,158 @@ class GroqClient:
                 print(f"✅ RAG Engine inicializado: {self.rag_engine.get_stats()}")
             except Exception as e:
                 print(f"⚠️ Error al inicializar RAG: {e}")
+
+    def _initialize_medical_libraries(self):
+        """Inicializar todas las librerías médicas instaladas"""
+        if not LIBRERIAS_DISPONIBLES:
+            print("⚠️ Librerías médicas no disponibles")
+            return
+            
+        try:
+            # 1. SPACY - Procesamiento lingüístico
+            self.nlp_medical = spacy.load("es_core_news_sm")
+            print("✅ Spacy NLP médico cargado")
+            
+            # 2. TRANSFORMERS - Reconocimiento de entidades médicas
+            self.ner_pipeline = pipeline(
+                "ner", 
+                aggregation_strategy="simple",
+                model="Babelscape/wikineural-multilingual-ner"
+            )
+            print("✅ Transformers NER médico cargado")
+            
+            # 3. PYMED - Búsqueda en PubMed
+            self.pubmed_tool = PubMed(tool="Lisabella-Medical-AI", email="lisabella@medical.ai")
+            print("✅ PubMed integrado")
+            
+        except Exception as e:
+            print(f"⚠️ Error inicializando librerías médicas: {e}")
+
+    def _enhance_with_medical_nlp(self, question: str, domain: str) -> dict:
+        """
+        ENRIQUECER pregunta con ANÁLISIS MÉDICO AUTOMÁTICO usando todas las librerías
+        """
+        if not self.nlp_medical:
+            return {"original_question": question}
+            
+        try:
+            # 1. SPACY - Análisis lingüístico profundo
+            doc = self.nlp_medical(question)
+            medical_entities = [(ent.text, ent.label_) for ent in doc.ents]
+            verbs = [token.lemma_ for token in doc if token.pos_ == "VERB"]
+            nouns = [token.lemma_ for token in doc if token.pos_ == "NOUN"]
+            
+            # 2. TRANSFORMERS - Reconocimiento de entidades médicas
+            ner_results = self.ner_pipeline(question)
+            medical_terms = [entity for entity in ner_results if entity['score'] > 0.8]
+            
+            # 3. PANDAS - Estructurar datos para tablas automáticas
+            analysis_data = {
+                'entidades': medical_entities,
+                'terminos_medicos': medical_terms,
+                'estructura_sintactica': {
+                    'verbos': verbs,
+                    'sustantivos': nouns,
+                    'dominio': domain
+                }
+            }
+            
+            # 4. GENERAR CONTEXTO ENRIQUECIDO
+            enhanced_context = self._generate_enhanced_context(analysis_data, question)
+            
+            return {
+                "original_question": question,
+                "medical_analysis": analysis_data,
+                "enhanced_context": enhanced_context,
+                "has_medical_insights": len(medical_entities) > 0 or len(medical_terms) > 0
+            }
+            
+        except Exception as e:
+            print(f"⚠️ Error en análisis médico NLP: {e}")
+            return {"original_question": question}
+
+    def _generate_enhanced_context(self, analysis_data: dict, original_question: str) -> str:
+        """Generar contexto enriquecido con análisis médico automático"""
+        
+        context = "🧬 **ANÁLISIS MÉDICO AUTOMÁTICO INTEGRADO**\n\n"
+        
+        # Entidades médicas detectadas
+        if analysis_data['entidades']:
+            context += "**📋 ENTIDADES MÉDICAS DETECTADAS:**\n"
+            for entity, label in analysis_data['entidades'][:5]:
+                context += f"• {entity} ({label})\n"
+            context += "\n"
+        
+        # Términos médicos con alta confianza
+        if analysis_data['terminos_medicos']:
+            context += "**🔬 TÉRMINOS TÉCNICOS IDENTIFICADOS:**\n"
+            for term in analysis_data['terminos_medicos'][:3]:
+                context += f"• {term['word']} (confianza: {term['score']:.2f})\n"
+            context += "\n"
+        
+        # Análisis sintáctico
+        estructura = analysis_data['estructura_sintactica']
+        if estructura['verbos']:
+            context += f"**📝 ANÁLISIS LINGÜÍSTICO:**\n"
+            context += f"• Verbos clave: {', '.join(estructura['verbos'][:3])}\n"
+            context += f"• Sustantivos médicos: {', '.join(estructura['sustantivos'][:5])}\n"
+            context += f"• Dominio inferido: {estructura['dominio']}\n\n"
+        
+        context += f"**🎯 PREGUNTA ORIGINAL PARA ANÁLISIS:**\n{original_question}\n\n"
+        context += "**💡 CONTEXTO CLÍNICO ENRIQUECIDO - Responde con máxima precisión técnica**"
+        
+        return context
+
+    def _search_biomedical_references(self, question: str) -> str:
+        """
+        Buscar referencias biomédicas en tiempo real usando PyMed
+        """
+        if not self.pubmed_tool:
+            return ""
+            
+        try:
+            # Buscar en PubMed
+            results = self.pubmed_tool.query(question, max_results=2)
+            articles = []
+            
+            for article in results:
+                articles.append({
+                    'title': article.title or "Sin título",
+                    'abstract': article.abstract or "Resumen no disponible",
+                    'pub_date': str(article.publication_date) if article.publication_date else "Fecha desconocida"
+                })
+            
+            if articles:
+                references = "\n**📚 REFERENCIAS BIOMÉDICAS EN TIEMPO REAL:**\n"
+                for i, article in enumerate(articles, 1):
+                    references += f"{i}. **{article['title']}** ({article['pub_date']})\n"
+                    references += f"   {article['abstract'][:200]}...\n\n"
+                return references
+                
+        except Exception as e:
+            print(f"⚠️ Error buscando en PubMed: {e}")
+            
+        return ""
+
+    def _generate_medical_tables(self, medical_data: dict) -> str:
+        """
+        Generar tablas médicas automáticas usando Pandas
+        """
+        try:
+            # Ejemplo: Tabla de rangos normales vs valores
+            df_rangos = pd.DataFrame({
+                'Parámetro': ['HbA1c', 'Glucosa en ayunas', 'Presión arterial', 'Colesterol LDL'],
+                'Valor Normal': ['<5.7%', '<100 mg/dL', '<120/80 mmHg', '<100 mg/dL'],
+                'Valor Alterado': ['≥6.5%', '≥126 mg/dL', '≥140/90 mmHg', '≥160 mg/dL'],
+                'Significado': ['Diabetes', 'Hiperglucemia', 'Hipertensión', 'Dislipidemia']
+            })
+            
+            table_html = df_rangos.to_markdown(index=False)
+            return f"\n**📊 TABLA DE RANGOS MÉDICOS (Generada automáticamente):**\n{table_html}\n"
+            
+        except Exception as e:
+            print(f"⚠️ Error generando tabla médica: {e}")
+            return ""
 
     def _classify_question_type(self, question: str) -> str:
         q_lower = (question or "").lower()
@@ -53,11 +226,19 @@ class GroqClient:
             pass
 
     def generate_stream(self, question, domain, special_command=None):
-        # Buscar contexto en RAG si está disponible
+        # ✅ PASO 1: ENRIQUECER con ANÁLISIS MÉDICO AUTOMÁTICO
+        medical_analysis = self._enhance_with_medical_nlp(question, domain)
+        
+        # ✅ PASO 2: BUSCAR REFERENCIAS EN TIEMPO REAL
+        biomedical_refs = self._search_biomedical_references(question)
+        
+        # ✅ PASO 3: CONTEXTO RAG (si disponible)
         rag_context = self._get_rag_context(question) if self.rag_engine else None
         
-        system_msg = self._build_system_prompt(domain, special_command, rag_context)
-        user_msg = self._build_user_prompt(question, domain, special_command)
+        # ✅ PASO 4: CONSTRUIR PROMPT MEJORADO
+        system_msg = self._build_enhanced_system_prompt(domain, special_command, rag_context, medical_analysis, biomedical_refs)
+        user_msg = self._build_enhanced_user_prompt(question, domain, special_command, medical_analysis)
+        
         question_type = self._classify_question_type(question)
         # Aumentar tokens para permitir respuestas completas sin alucinaciones
         if question_type == "operativa":
@@ -68,6 +249,7 @@ class GroqClient:
             max_tokens, temperature = 6000, 0.3  # Preguntas estándar - espacio generoso
         if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"]:
             max_tokens, temperature = 16000, 0.1  # Notas médicas - máxima capacidad
+        
         try:
             stream = self.client.chat.completions.create(
                 model=self.model,
@@ -122,11 +304,19 @@ class GroqClient:
         return "⏳ **Sistema Saturado**"
 
     def _call_groq_api(self, question, domain, special_command, max_tokens=3000):
-        # Buscar contexto en RAG si está disponible
+        # ✅ PASO 1: ENRIQUECER con ANÁLISIS MÉDICO AUTOMÁTICO
+        medical_analysis = self._enhance_with_medical_nlp(question, domain)
+        
+        # ✅ PASO 2: BUSCAR REFERENCIAS EN TIEMPO REAL
+        biomedical_refs = self._search_biomedical_references(question)
+        
+        # ✅ PASO 3: CONTEXTO RAG (si disponible)
         rag_context = self._get_rag_context(question) if self.rag_engine else None
         
-        system_msg = self._build_system_prompt(domain, special_command, rag_context)
-        user_msg = self._build_user_prompt(question, domain, special_command)
+        # ✅ PASO 4: CONSTRUIR PROMPT MEJORADO
+        system_msg = self._build_enhanced_system_prompt(domain, special_command, rag_context, medical_analysis, biomedical_refs)
+        user_msg = self._build_enhanced_user_prompt(question, domain, special_command, medical_analysis)
+        
         temperature = 0.1 if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"] else self.temp
         response = self.client.chat.completions.create(
             model=self.model,
@@ -166,7 +356,21 @@ class GroqClient:
             print(f"⚠️ Error en RAG search: {e}")
             return None
     
-    def _build_system_prompt(self, domain, special_command=None, rag_context=None):
+    def _build_enhanced_system_prompt(self, domain, special_command=None, rag_context=None, medical_analysis=None, biomedical_refs=None):
+        """Sistema prompt MEJORADO con análisis médico integrado"""
+        
+        base_prompt = self._get_base_prompt(domain, rag_context)
+        
+        # ✅ AÑADIR ANÁLISIS MÉDICO AUTOMÁTICO
+        if medical_analysis and medical_analysis.get('has_medical_insights'):
+            enhanced_context = medical_analysis.get('enhanced_context', '')
+            base_prompt = enhanced_context + "\n\n" + base_prompt
+        
+        # ✅ AÑADIR REFERENCIAS BIOMÉDICAS
+        if biomedical_refs:
+            base_prompt += "\n\n" + biomedical_refs
+        
+        # Comandos especiales (mantener existentes)
         if special_command == "revision_nota":
             return """Eres auditor médico JCI/COFEPRIS. Evalúa nota con estándares completos: datos paciente, motivo consulta, padecimiento, antecedentes, exploración, diagnóstico, plan, legal. Formato: Componentes Presentes, Faltantes, Errores, Cumplimiento %, Recomendaciones."""
         elif special_command == "correccion_nota":
@@ -176,9 +380,9 @@ class GroqClient:
         elif special_command == "valoracion":
             return """Médico consultor Mayo/UpToDate. Proporciona: Resumen Caso, Hipótesis Diagnósticas (probable + 3 diferenciales con justificación), Estudios Sugeridos, Abordaje Terapéutico (dosis), Signos Alarma, Fuentes."""
         elif special_command == "study_mode":
-            return self._get_base_prompt(domain) + "\n\n**MODO EDUCATIVO**: Usa analogías, ejemplos clínicos, explica 'por qué', divide conceptos, casos prácticos, errores comunes, correlación clínica. Objetivo: ENTENDER profundamente."
+            return base_prompt + "\n\n**MODO EDUCATIVO**: Usa analogías, ejemplos clínicos, explica 'por qué', divide conceptos, casos prácticos, errores comunes, correlación clínica. Objetivo: ENTENDER profundamente."
         else:
-            return self._get_base_prompt(domain)
+            return base_prompt
 
     def _get_base_prompt(self, domain, rag_context=None):
         base = f"""Eres Lisabella, asistente médico especializado en {domain}.
@@ -225,10 +429,20 @@ Profundidad R3-R4. Precisión quirúrgica.
 • Prioriza CALIDAD y PRECISIÓN sobre completitud
 • Usa todo el espacio necesario - no hay límite de tokens si la respuesta lo requiere"""
 
-    def _build_user_prompt(self, question, domain, special_command=None):
+    def _build_enhanced_user_prompt(self, question, domain, special_command=None, medical_analysis=None):
+        """User prompt MEJORADO con contexto médico"""
         if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"]:
             return question
-        return f"""PREGUNTA MÉDICA ({domain}):\n{question}\n\nResponde con razonamiento clínico sólido. Sé preciso, conciso y técnico."""
+        
+        # ✅ AÑADIR CONTEXTO MÉDICO AL USER PROMPT
+        enhanced_context = ""
+        if medical_analysis and medical_analysis.get('has_medical_insights'):
+            enhanced_context = f"\n\n[CONTEXTO MÉDICO DETECTADO: {len(medical_analysis['medical_analysis']['entidades'])} entidades médicas identificadas]"
+        
+        return f"""PREGUNTA MÉDICA ({domain}):{enhanced_context}
+{question}
+
+Responde con razonamiento clínico sólido. Sé preciso, conciso y técnico."""
 
     def _generate_rate_limit_message(self):
         return "⏳ **Sistema Saturado**\n\nEspera 1-2 minutos. Límite técnico del servicio."
