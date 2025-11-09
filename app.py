@@ -108,40 +108,6 @@ def ask():
 # --- API Streaming (PRINCIPAL) ---
 @app.route('/ask_stream', methods=['POST'])
 def ask_stream():
-    """Endpoint para respuestas en streaming"""
-    print("✅ /ask_stream ACCEDIDO - Iniciando stream")
-    
-    if not groq_client or not wrapper:
-        return jsonify({"error": "Sistema no inicializado"}), 500
-
-    try:
-        data = request.get_json()
-        question = data.get("question", "")
-        
-        if not question:
-            return jsonify({"error": "Pregunta vacía"}), 400
-
-        classification = wrapper.classify(question)
-        if classification["result"] != Result.APPROVED:
-            return jsonify({
-                "error": classification["reason"],
-                "suggestion": classification.get("suggestion", "")
-            }), 400
-
-        domain = classification.get("domain", "medicina general")
-        def generate():
-            for chunk in groq_client.generate_stream(question, domain):
-                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
-                
-        return Response(generate(), mimetype='text/event-stream')
-
-    except Exception as e:
-        print(f"❌ Error en /ask_stream: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-# --- API Streaming (PRINCIPAL) ---
-@app.route('/ask_stream', methods=['POST'])
-def ask_stream():
     """API con streaming en tiempo real usando Groq"""
     if not groq_client or not wrapper:
         return jsonify({
