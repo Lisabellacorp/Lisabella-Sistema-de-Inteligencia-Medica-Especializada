@@ -1,4 +1,6 @@
+# ========================================
 # Core Framework
+# ========================================
 Flask==3.0.0
 Flask-CORS==4.0.0
 groq>=0.11.0
@@ -25,14 +27,14 @@ negspacy==1.0.4
 transformers==4.37.0
 torch==2.2.0
 
-# Modelos de scispacy (instalar después con pip):
+# Modelos de scispacy (instalar después con pip si los necesitas):
 # python -m spacy download en_core_sci_sm
 # pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.3/en_core_sci_sm-0.5.3.tar.gz
 
 # ========================================
 # Terminología Médica (SNOMED, UMLS, ICD-10)
 # ========================================
-https://github.com/Jean-Baptiste-Camps/PyMedTermino2/archive/refs/heads/master.zip#egg=pymedtermino2
+-e git+https://github.com/Jean-Baptiste-Camps/PyMedTermino2.git@master#egg=pymedtermino2
 # fhir.resources==7.1.0  # Descomentar cuando integres FHIR
 
 # ========================================
@@ -53,8 +55,8 @@ lifelines==0.27.8
 # ========================================
 # Imagenología Médica (DICOM)
 # ========================================
-# pydicom==2.4.4  # Descomentar cuando integres imágenes
-# SimpleITK==2.3.1  # Descomentar para procesamiento avanzado
+# pydicom==2.4.4
+# SimpleITK==2.3.1
 
 # ========================================
 # Visualización y Dashboard
