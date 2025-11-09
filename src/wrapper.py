@@ -140,7 +140,28 @@ class Wrapper:
         
         total_keywords = sum(domain_scores.values())
         
-        # REGLA CRÍTICA: Si tiene ≥3 keywords médicos (o patrones técnicos), APROBAR sin importar la estructura
+        # REGLA CRÍTICA 1: Detectar términos técnicos específicos de alta especialización
+        technical_terms = [
+            "electrocardiográfic", "electrocardiografic", "derivaciones", "fibrinólisis", "fibrinolisis",
+            "angioplastia", "biomarcadores", "fisiopatología", "fisiopatologia", "farmacocinética",
+            "farmacocinetica", "farmacodinámica", "farmacodinamica", "mecanismo de acción",
+            "cascada", "isquemia", "oclusión", "oclusion", "ligamentos", "irrigación", "irrigacion",
+            "inervación", "inervacion", "drenaje linfático", "drenaje linfatico", "ventanas temporales",
+            "criterios diagnósticos", "criterios diagnosticos", "diagnóstico diferencial",
+            "diagnostico diferencial", "signos de alarma", "contraindicaciones"
+        ]
+        
+        has_technical_term = any(term in q_lower for term in technical_terms)
+        
+        if has_technical_term and domain_scores:
+            best_domain = max(domain_scores, key=domain_scores.get)
+            return {
+                "result": Result.APPROVED,
+                "domain": best_domain,
+                "confidence": 0.88
+            }
+        
+        # REGLA CRÍTICA 2: Si tiene ≥3 keywords médicos (o patrones técnicos), APROBAR sin importar la estructura
         if total_keywords >= 3:
             best_domain = max(domain_scores, key=domain_scores.get)
             confidence = min(0.92, 0.70 + (total_keywords * 0.06))
