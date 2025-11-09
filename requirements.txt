@@ -1,6 +1,63 @@
+# Core Framework
 Flask==3.0.0
 Flask-CORS==4.0.0
 groq>=0.11.0
 python-dotenv==1.0.0
 gunicorn==21.2.0
 pytest==7.4.0
+
+# ========================================
+# RAG & Semantic Search
+# ========================================
+pypdf2==3.0.1
+sentence-transformers==2.2.2
+chromadb==0.4.22
+faiss-cpu==1.7.4
+langchain==0.1.0
+
+# ========================================
+# NLP Clínico (Procesamiento Médico)
+# ========================================
+spacy==3.7.2
+scispacy==0.5.3
+medspacy==0.2.0
+negspacy==1.0.4
+transformers==4.35.0
+torch==2.1.0
+
+# Modelos de scispacy (instalar después con pip):
+# python -m spacy download en_core_sci_sm
+# pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.3/en_core_sci_sm-0.5.3.tar.gz
+
+# ========================================
+# Terminología Médica (SNOMED, UMLS, ICD-10)
+# ========================================
+pymedtermino2==0.4.0
+# fhir.resources==7.1.0  # Descomentar cuando integres FHIR
+
+# ========================================
+# Búsqueda Biomédica (PubMed, Literatura)
+# ========================================
+biopython==1.83
+pymed==0.8.9
+
+# ========================================
+# Bioestadística y Análisis Clínico
+# ========================================
+pandas==2.1.4
+numpy==1.26.2
+scipy==1.11.4
+statsmodels==0.14.1
+lifelines==0.27.8
+
+# ========================================
+# Imagenología Médica (DICOM)
+# ========================================
+# pydicom==2.4.4  # Descomentar cuando integres imágenes
+# SimpleITK==2.3.1  # Descomentar para procesamiento avanzado
+
+# ========================================
+# Visualización y Dashboard
+# ========================================
+plotly==5.18.0
+# streamlit==1.29.0  # Descomentar si quieres dashboard interactivo
