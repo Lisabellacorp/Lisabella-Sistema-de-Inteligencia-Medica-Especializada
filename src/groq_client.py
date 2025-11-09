@@ -38,14 +38,15 @@ class GroqClient:
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
         question_type = self._classify_question_type(question)
+        # Aumentar tokens para permitir respuestas completas sin alucinaciones
         if question_type == "operativa":
-            max_tokens, temperature = 800, 0.1
+            max_tokens, temperature = 1500, 0.1  # Dosis, cálculos - más espacio para explicar
         elif question_type == "academica":
-            max_tokens, temperature = 8000, 0.3
+            max_tokens, temperature = 12000, 0.3  # Preguntas complejas - sin límite artificial
         else:
-            max_tokens, temperature = 3000, 0.3
+            max_tokens, temperature = 6000, 0.3  # Preguntas estándar - espacio generoso
         if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"]:
-            max_tokens, temperature = 12000, 0.1
+            max_tokens, temperature = 16000, 0.1  # Notas médicas - máxima capacidad
         try:
             stream = self.client.chat.completions.create(
                 model=self.model,
@@ -79,9 +80,10 @@ class GroqClient:
 
     def generate(self, question, domain, special_command=None):
         question_type = self._classify_question_type(question)
-        max_tokens = 800 if question_type == "operativa" else (8000 if question_type == "academica" else 3000)
+        # Aumentar tokens para calidad sin alucinaciones
+        max_tokens = 1500 if question_type == "operativa" else (12000 if question_type == "academica" else 6000)
         if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"]:
-            max_tokens = 12000
+            max_tokens = 16000
         for attempt in range(self.max_retries):
             try:
                 with ThreadPoolExecutor(max_workers=1) as executor:
@@ -168,7 +170,14 @@ class GroqClient:
 • Fuentes verificables: Gray's Anatomy, Netter, Moore Anatomía, Guyton & Hall, Robbins, Harrison's, UpToDate, Guías ESC/AHA/ACC/COFEPRIS
 • Si no tienes certeza absoluta de la fuente, indica: "**Basado en**: Principios de [área] establecidos en literatura médica estándar"
 
-Profundidad R3-R4. Precisión quirúrgica. Balance: 600-900 tokens."""
+Profundidad R3-R4. Precisión quirúrgica.
+
+**FILOSOFÍA ANTI-ALUCINACIÓN**:
+• Si NO tienes la información exacta, admítelo claramente
+• NUNCA inventes dosis, procedimientos o referencias
+• Es mejor decir "No tengo acceso a la fuente específica" que inventar
+• Prioriza CALIDAD y PRECISIÓN sobre completitud
+• Usa todo el espacio necesario - no hay límite de tokens si la respuesta lo requiere"""
 
     def _build_user_prompt(self, question, domain, special_command=None):
         if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"]:
