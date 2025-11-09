@@ -1,14 +1,14 @@
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
-import groq
+from groq import Groq
 
 class GroqClient:
     def __init__(self):
         api_key = os.environ.get("GROQ_API_KEY")
         if not api_key:
             raise Exception("GROQ_API_KEY no configurada")
-        self.client = groq.Groq(api_key=api_key)
+        self.client = Groq(api_key=api_key)
         self.model = os.environ.get("GROQ_MODEL", "llama-3.1-70b-versatile")
         self.temp = float(os.environ.get("GROQ_TEMP", "0.3"))
         self.max_retries = 3
