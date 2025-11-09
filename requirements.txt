@@ -3,13 +3,13 @@
 # ========================================
 Flask==3.0.0
 Flask-CORS==4.0.0
-groq>=0.11.0
+groq==0.33.0
 python-dotenv==1.0.0
 gunicorn==21.2.0
 pytest==7.4.0
 
 # ========================================
-# RAG & Búsqueda Semántica
+# RAG & Búsqueda Semántica (VERSIÓN LIGERA)
 # ========================================
 pypdf2==3.0.1
 sentence-transformers==2.2.2
@@ -18,22 +18,22 @@ faiss-cpu==1.8.0
 langchain==0.1.0
 
 # ========================================
-# NLP Clínico (Procesamiento de Texto Médico)
+# NLP Clínico (VERSIÓN ESTABLE)
 # ========================================
-spacy==3.6.1  # Cambiado a versión compatible con scispacy
-scispacy==0.5.3
-medspacy==0.2.0
-negspacy==1.0.4
+spacy==3.7.2
+# scispacy==0.5.3  # TEMPORALMENTE DESHABILITADO - PROBLEMAS DE COMPILACIÓN
+# medspacy==0.2.0  # TEMPORALMENTE DESHABILITADO
+# negspacy==1.0.4  # TEMPORALMENTE DESHABILITADO
 transformers==4.37.0
 torch==2.2.0
 
 # ========================================
-# Terminología Médica (SNOMED CT, UMLS, ICD-10)
+# Terminología Médica 
 # ========================================
 fhir.resources==7.1.0
 
 # ========================================
-# Búsqueda Biomédica (Literatura Científica)
+# Búsqueda Biomédica
 # ========================================
 biopython==1.83
 pymed==0.8.9
@@ -48,16 +48,9 @@ statsmodels==0.14.1
 lifelines==0.27.8
 
 # ========================================
-# Imagenología Médica (DICOM)
-# ========================================
-# pydicom==2.4.4  # Descomentar cuando integres imágenes
-# SimpleITK==2.3.1  # Descomentar si procesas imágenes médicas
-
-# ========================================
-# Visualización y Dashboards
+# Visualización
 # ========================================
 plotly==5.18.0
-# streamlit==1.29.0  # Descomentar si deseas dashboards interactivos
 
 # ========================================
 # Fin del archivo
