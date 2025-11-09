@@ -1,5 +1,5 @@
 # ========================================
-# Core Framework
+# Núcleo del Framework (Backend Flask)
 # ========================================
 Flask==3.0.0
 Flask-CORS==4.0.0
@@ -9,7 +9,7 @@ gunicorn==21.2.0
 pytest==7.4.0
 
 # ========================================
-# RAG & Semantic Search
+# RAG & Búsqueda Semántica
 # ========================================
 pypdf2==3.0.1
 sentence-transformers==2.2.2
@@ -18,7 +18,7 @@ faiss-cpu==1.8.0
 langchain==0.1.0
 
 # ========================================
-# NLP Clínico (Procesamiento Médico)
+# NLP Clínico (Procesamiento de Texto Médico)
 # ========================================
 spacy==3.7.2
 scispacy==0.5.3
@@ -27,18 +27,19 @@ negspacy==1.0.4
 transformers==4.37.0
 torch==2.2.0
 
-# Modelos de scispacy (instalar después con pip si los necesitas):
+# Modelos de scispacy (instalar después de desplegar):
 # python -m spacy download en_core_sci_sm
 # pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.3/en_core_sci_sm-0.5.3.tar.gz
 
 # ========================================
-# Terminología Médica (SNOMED, UMLS, ICD-10)
+# Terminología Médica (SNOMED CT, UMLS, ICD-10)
 # ========================================
--e git+https://github.com/Jean-Baptiste-Camps/PyMedTermino2.git@master#egg=pymedtermino2
-# fhir.resources==7.1.0  # Descomentar cuando integres FHIR
+# Uso directo del ZIP para evitar errores de autenticación en entornos CI/CD
+https://github.com/Jean-Baptiste-Camps/PyMedTermino2/archive/refs/heads/master.zip
+# fhir.resources==7.1.0  # Descomentar cuando integres compatibilidad FHIR
 
 # ========================================
-# Búsqueda Biomédica (PubMed, Literatura)
+# Búsqueda Biomédica (Literatura Científica)
 # ========================================
 biopython==1.83
 pymed==0.8.9
@@ -55,11 +56,15 @@ lifelines==0.27.8
 # ========================================
 # Imagenología Médica (DICOM)
 # ========================================
-# pydicom==2.4.4
-# SimpleITK==2.3.1
+# pydicom==2.4.4  # Descomentar cuando integres imágenes DICOM
+# SimpleITK==2.3.1  # Descomentar si procesas imágenes médicas
 
 # ========================================
-# Visualización y Dashboard
+# Visualización y Dashboards
 # ========================================
 plotly==5.18.0
-# streamlit==1.29.0  # Descomentar si quieres dashboard interactivo
+# streamlit==1.29.0  # Descomentar si deseas dashboards interactivos
+
+# ========================================
+# Fin del archivo de dependencias
+# ========================================
