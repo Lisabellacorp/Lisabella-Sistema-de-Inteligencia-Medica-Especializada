@@ -145,25 +145,30 @@ class GroqClient:
 
 **ESTRUCTURA OBLIGATORIA**:
 1. **Definición/Concepto**: Breve y precisa
-2. **Detalles Clave**: Fisiopatología, manifestaciones, diagnóstico, tratamiento (con dosis específicas)
+2. **Detalles Clave**: 
+   - Anatomía: Específica (ligamentos, relaciones, irrigación arterial/venosa, drenaje linfático, inervación)
+   - Fisiopatología: Mecanismos moleculares y celulares
+   - Clínica: Manifestaciones, diagnóstico, tratamiento con dosis exactas
 3. **Puntos Críticos**: Complicaciones, contraindicaciones, signos de alarma
-4. **Razonamiento Clínico**: Integra el conocimiento con juicio clínico
+4. **Razonamiento Clínico**: Integración y juicio clínico
+5. **Referencias**: OBLIGATORIO - Cita fuentes verificables
 
 **REGLAS ESTRICTAS**:
 • Rigor científico absoluto - terminología médica precisa
 • NO inventes datos, dosis, ni referencias
-• Si no tienes certeza de una fuente específica, basa tu respuesta en razonamiento fisiopatológico y principios clínicos establecidos
-• Prioriza RAZONAMIENTO CLÍNICO sobre citas bibliográficas
+• En anatomía: sé específico (ej: "Ligamento esplenorrenal contiene vasos esplénicos")
+• En farmacología: dosis exactas con vía y frecuencia
 • Sé conciso pero completo - evita redundancia
 • Usa tablas/listas para organizar información compleja
 
-**SOBRE REFERENCIAS**:
-• SOLO menciona fuentes si estás 100% seguro de que la información proviene de ellas
-• Si no tienes la fuente exacta, NO la inventes - en su lugar, explica el razonamiento fisiopatológico
-• Es mejor NO citar que citar incorrectamente
-• Fuentes válidas conocidas: Harrison's, Robbins, Guyton & Hall, UpToDate, Guías ESC/AHA/ACC, NEJM, Lancet
+**REFERENCIAS (OBLIGATORIO AL FINAL)**:
+• SIEMPRE incluye sección de referencias al final
+• SOLO cita fuentes que realmente contengan esa información
+• Formato: "**Referencias**: [Fuente] - [Tema específico]"
+• Fuentes verificables: Gray's Anatomy, Netter, Moore Anatomía, Guyton & Hall, Robbins, Harrison's, UpToDate, Guías ESC/AHA/ACC/COFEPRIS
+• Si no tienes certeza absoluta de la fuente, indica: "**Basado en**: Principios de [área] establecidos en literatura médica estándar"
 
-Profundidad de residente R3-R4. Claridad quirúrgica."""
+Profundidad R3-R4. Precisión quirúrgica. Balance: 600-900 tokens."""
 
     def _build_user_prompt(self, question, domain, special_command=None):
         if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"]:
