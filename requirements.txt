@@ -27,15 +27,11 @@ negspacy==1.0.4
 transformers==4.37.0
 torch==2.2.0
 
-# Modelos de scispacy (instalar después del despliegue)
-# python -m spacy download en_core_sci_sm
-# pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.3/en_core_sci_sm-0.5.3.tar.gz
-
 # ========================================
 # Terminología Médica (SNOMED CT, UMLS, ICD-10)
 # ========================================
-https://github.com/Jean-Baptiste-Camps/PyMedTermino2/archive/refs/heads/main.zip
-# fhir.resources==7.1.0  # Descomentar cuando integres FHIR
+# PyMedTermino2 eliminado - usar scispacy/medspacy como alternativa
+fhir.resources==7.1.0
 
 # ========================================
 # Búsqueda Biomédica (Literatura Científica)
