@@ -1,57 +1,7 @@
-# ========================================
-# Núcleo del Framework (Backend Flask)
-# ========================================
+# requirements_optimized.txt
 Flask==3.0.0
 Flask-CORS==4.0.0
 groq==0.33.0
 python-dotenv==1.0.0
 gunicorn==21.2.0
 pytest==7.4.0
-
-# ========================================
-# RAG & Búsqueda Semántica (VERSIÓN LIGERA)
-# ========================================
-pypdf2==3.0.1
-sentence-transformers==2.2.2
-chromadb==0.4.22
-faiss-cpu==1.8.0
-langchain==0.1.0
-
-# ========================================
-# NLP Clínico (VERSIÓN ESTABLE)
-# ========================================
-spacy==3.7.2
-# scispacy==0.5.3  # TEMPORALMENTE DESHABILITADO - PROBLEMAS DE COMPILACIÓN
-# medspacy==0.2.0  # TEMPORALMENTE DESHABILITADO
-# negspacy==1.0.4  # TEMPORALMENTE DESHABILITADO
-transformers==4.37.0
-torch==2.2.0
-
-# ========================================
-# Terminología Médica 
-# ========================================
-fhir.resources==7.1.0
-
-# ========================================
-# Búsqueda Biomédica
-# ========================================
-biopython==1.83
-pymed==0.8.9
-
-# ========================================
-# Bioestadística y Análisis Clínico
-# ========================================
-pandas==2.1.4
-numpy==1.26.2
-scipy==1.11.4
-statsmodels==0.14.1
-lifelines==0.27.8
-
-# ========================================
-# Visualización
-# ========================================
-plotly==5.18.0
-
-# ========================================
-# Fin del archivo
-# ========================================
