@@ -17,61 +17,62 @@ class GroqClient:
         self.base_retry_delay = 2
         self.api_timeout = 300
         
-        print(f"🚀 GroqClient inicializado - Modelo: {self.model}")
-
-    def _classify_question_complexity(self, question: str) -> dict:
-        """Clasificar complejidad de pregunta para asignar tokens adecuados"""
-        q_lower = question.lower()
-        
-        complexity_scores = {
-            "ultra_compleja": 0,
-            "alta_complejidad": 0, 
-            "complejidad_media": 0,
-            "basica": 0
+        # ✅ STRATEGIA DE TOKENS RESPETANDO RATE LIMITS
+        self.token_strategy = {
+            "ultra_compleja": 8000,    # 8K tokens máximo
+            "alta_complejidad": 4000,  # 4K tokens
+            "complejidad_media": 2000, # 2K tokens  
+            "basica": 1000            # 1K tokens
         }
         
-        # PUNTUACIÓN POR INDICADORES DE ALTA ESPECIALIDAD
-        high_specialty_terms = [
+        print(f"🚀 GroqClient inicializado - Estrategia tokens: {self.token_strategy}")
+
+    def _classify_question_complexity(self, question: str) -> dict:
+        """Clasificar complejidad RESPETANDO rate limits de Groq"""
+        q_lower = question.lower()
+        
+        # ✅ TÉRMINOS DE ULTRA COMPLEJIDAD (8K tokens)
+        ultra_complex_terms = [
             "mecanismo molecular", "transducción de señales", "cascada de fosforilación",
-            "receptor tirosina quinasa", "expresión génica", "transcripción",
-            "farmacocinética avanzada", "unión a albúmina", "citocromo p450",
-            "anatomía segmentaria", "irrigación arterial", "drenaje linfático",
-            "histología específica", "ultraestructura", "microscopía electrónica",
-            "estadística avanzada", "análisis multivariado", "supervivencia de Kaplan-Meier"
+            "receptor tirosina quinasa", "expresión génica", "farmacocinética avanzada",
+            "anatomía segmentaria", "irrigación arterial", "drenaje linfático específico",
+            "ultraestructura", "microscopía electrónica", "análisis multivariado"
         ]
         
-        for term in high_specialty_terms:
-            if term in q_lower:
-                complexity_scores["ultra_compleja"] += 2
+        if any(term in q_lower for term in ultra_complex_terms):
+            return {"level": "ultra_compleja", "max_tokens": self.token_strategy["ultra_compleja"], "temperature": 0.1}
         
-        # INDICADORES DE COMPLEJIDAD ALTA
-        high_complexity_terms = [
+        # ✅ TÉRMINOS DE ALTA COMPLEJIDAD (4K tokens)
+        high_complex_terms = [
             "fisiopatología", "farmacodinámica", "farmacocinética", 
-            "diagnóstico diferencial", "criterios diagnósticos", "escalas pronósticas",
+            "diagnóstico diferencial", "criterios diagnósticos",
             "técnicas quirúrgicas", "abordaje laparoscópico", "procedimientos endoscópicos",
             "estudios clínicos", "meta-análisis", "ensayos randomizados"
         ]
         
-        for term in high_complexity_terms:
-            if term in q_lower:
-                complexity_scores["alta_complejidad"] += 1
+        if any(term in q_lower for term in high_complex_terms):
+            return {"level": "alta_complejidad", "max_tokens": self.token_strategy["alta_complejidad"], "temperature": 0.2}
         
-        # DETERMINAR NIVEL FINAL
-        if complexity_scores["ultra_compleja"] >= 2:
-            return {"level": "ultra_compleja", "max_tokens": 32000, "temperature": 0.1}
-        elif complexity_scores["alta_complejidad"] >= 3 or complexity_scores["ultra_compleja"] >= 1:
-            return {"level": "alta_complejidad", "max_tokens": 24000, "temperature": 0.2}
-        elif "anatomía" in q_lower or "farmacología" in q_lower:
-            return {"level": "complejidad_media", "max_tokens": 16000, "temperature": 0.3}
-        else:
-            return {"level": "basica", "max_tokens": 8000, "temperature": 0.3}
+        # ✅ COMPLEJIDAD MEDIA (2K tokens) - Preguntas anatómicas/farmacológicas básicas
+        if "anatomía" in q_lower or "farmacología" in q_lower or "fisiología" in q_lower:
+            return {"level": "complejidad_media", "max_tokens": self.token_strategy["complejidad_media"], "temperature": 0.3}
+        
+        # ✅ BÁSICA (1K tokens) - Preguntas generales
+        return {"level": "basica", "max_tokens": self.token_strategy["basica"], "temperature": 0.3}
 
     def _log_token_usage(self, prompt_tokens, completion_tokens, domain, complexity):
-        """Log detallado de uso de tokens"""
+        """Log detallado con advertencias de límites"""
         total = (prompt_tokens or 0) + (completion_tokens or 0)
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         
-        print(f"📊 [{timestamp}] {complexity.upper()}: P={prompt_tokens} + C={completion_tokens} = {total} | {domain}")
+        # ✅ ADVERTENCIA SI NOS ACERCAMOS A LÍMITES
+        warning = ""
+        if total > 7000:
+            warning = " ⚠️ ALTO CONSUMO"
+        elif total > 3000:
+            warning = " ⚠️ CONSUMO MEDIO"
+        
+        print(f"📊 [{timestamp}] {complexity.upper()}: {total}tokens{warning} | {domain}")
         
         try:
             os.makedirs("logs", exist_ok=True)
@@ -81,18 +82,18 @@ class GroqClient:
             pass
 
     def generate_stream(self, question, domain, special_command=None):
-        """Generar respuesta en streaming con tokens optimizados"""
+        """Generar respuesta en streaming CON LÍMITES INTELIGENTES"""
         
-        # ANALIZAR COMPLEJIDAD PARA ASIGNAR RECURSOS
+        # ✅ ANALIZAR COMPLEJIDAD CON ESTRATEGIA DE TOKENS
         complexity_analysis = self._classify_question_complexity(question)
         max_tokens = complexity_analysis["max_tokens"]
         temperature = complexity_analysis["temperature"]
         
-        print(f"🎯 Complejidad: {complexity_analysis['level']} - Tokens: {max_tokens} - Temp: {temperature}")
+        print(f"🎯 Estrategia: {complexity_analysis['level']} - Tokens: {max_tokens}")
         
-        # CONSTRUIR PROMPT DE PRIMER MUNDO
-        system_msg = self._build_world_class_prompt(domain, special_command, complexity_analysis["level"])
-        user_msg = self._build_detailed_user_prompt(question, domain, special_command)
+        # ✅ PROMPT OPTIMIZADO PARA TOKENS LIMITADOS
+        system_msg = self._build_optimized_prompt(domain, special_command, complexity_analysis["level"])
+        user_msg = self._build_efficient_user_prompt(question, domain, special_command)
         
         try:
             stream = self.client.chat.completions.create(
@@ -113,7 +114,7 @@ class GroqClient:
                         accumulated_content += delta
                         yield delta
             
-            # LOG DE USO FINAL
+            # ✅ LOG CON CONCIENCIA DE LÍMITES
             self._log_token_usage(
                 len(system_msg + user_msg) // 4, 
                 len(accumulated_content) // 4, 
@@ -126,15 +127,17 @@ class GroqClient:
         except Exception as e:
             error_str = str(e)
             if "429" in error_str:
-                yield "\n\n⏳ **Límite de tasa excedido** - Espera 1-2 minutos\n\n"
+                yield "\n\n⏳ **Límite de tasa alcanzado** - Espera 1-2 minutos antes de nueva consulta\n\n"
+            elif "rate" in error_str.lower():
+                yield "\n\n🚫 **Límite de uso diario** - Intenta mañana\n\n"
             elif "timeout" in error_str.lower():
                 yield "\n\n⏱️ **Timeout del servidor** - Intenta con pregunta más breve\n\n"
             else:
-                yield f"\n\n⚠️ **Error del sistema**: {error_str[:200]}\n\n"
+                yield f"\n\n⚠️ **Error del sistema**: {error_str[:150]}\n\n"
             yield "__STREAM_DONE__"
 
     def generate(self, question, domain, special_command=None):
-        """API legacy para compatibilidad"""
+        """API legacy para compatibilidad - CON GESTIÓN DE TOKENS"""
         complexity_analysis = self._classify_question_complexity(question)
         max_tokens = complexity_analysis["max_tokens"]
         
@@ -157,11 +160,11 @@ class GroqClient:
         return "⏳ **Sistema saturado** - Intenta en 1-2 minutos"
 
     def _call_groq_api(self, question, domain, special_command, max_tokens):
-        """Llamada directa a API Groq"""
+        """Llamada directa a API Groq con gestión completa"""
         complexity_analysis = self._classify_question_complexity(question)
         
-        system_msg = self._build_world_class_prompt(domain, special_command, complexity_analysis["level"])
-        user_msg = self._build_detailed_user_prompt(question, domain, special_command)
+        system_msg = self._build_optimized_prompt(domain, special_command, complexity_analysis["level"])
+        user_msg = self._build_efficient_user_prompt(question, domain, special_command)
         
         temperature = 0.1 if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"] else complexity_analysis["temperature"]
         
@@ -172,7 +175,7 @@ class GroqClient:
             max_tokens=max_tokens,
         )
         
-        # LOG DE USO
+        # LOG DE USO COMPLETO
         usage = getattr(response, "usage", None)
         if usage:
             try:
@@ -187,101 +190,62 @@ class GroqClient:
         
         return response.choices[0].message.content
 
-    def _build_world_class_prompt(self, domain, special_command=None, complexity_level="basica"):
-        """PROMPT DE PRIMER MUNDO - Nivel médico internacional"""
+    def generate_chunk(self, prompt: str, domain: str, max_tokens: int = 1200):
+        """Método para generación por chunks (compatibilidad)"""
+        system_msg = self._build_optimized_prompt(domain)
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "system", "content": system_msg}, {"role": "user", "content": prompt}],
+            temperature=self.temp,
+            max_tokens=max_tokens,
+        )
+        return response.choices[0].message.content
+
+    def _build_optimized_prompt(self, domain, special_command=None, complexity_level="basica"):
+        """PROMPT OPTIMIZADO para tokens limitados pero alta calidad"""
         
-        base_prompt = f"""# 🎯 LISABELLA - SISTEMA MÉDICO DE ALTA ESPECIALIDAD
+        base_prompt = f"""Eres Lisabella, sistema médico especializado en {domain}.
 
-**ESPECIALIDAD PRINCIPAL**: {domain.upper()}
-**NIVEL DE COMPLEJIDAD**: {complexity_level.upper()}
-**ESTÁNDAR**: Excelencia académica nivel R4-R5
+**INSTRUCCIÓN PRINCIPAL**: Proporciona respuestas MÉDICAMENTE PRECISAS y ESTRUCTURADAS, optimizando el uso de tokens.
 
-## 🧬 PROTOCOLO DE RESPUESTA MÉDICA AVANZADA:
+**NIVEL: {complexity_level.upper()}** - Usa estructura apropiada:
 
-### 1. **NIVEL MOLECULAR/CELULAR (DETALLE QUIRÚRGICO):**
-- Mecanismos de transducción de señales (receptores, segundos mensajeros, cascadas de fosforilación)
-- Regulación de expresión génica (factores de transcripción, modificaciones epigenéticas)
-- Vías metabólicas completas (enzimas, sustratos, productos, regulación alostérica)
-- Dinámica de membranas y transportadores
+{'**🎯 ESTRUCTURA ULTRACOMPLETA (8K tokens):**' if complexity_level == 'ultra_compleja' else '**📋 ESTRUCTURA EFICIENTE:**'}
 
-### 2. **NIVEL ANATÓMICO/HISTOLÓGICO (PRECISIÓN QUIRÚRGICA):**
-- **Topografía exacta**: relaciones anatómicas en los 3 planos del espacio
-- **Irrigación arterial**: arterias principales, colaterales, territorios de irrigación
-- **Drenaje venoso**: sistemas superficiales y profundos, anastomosis
-- **Drenaje linfático**: territorios linfáticos, ganglios regionales
-- **Inervación**: componentes autonómicos y somáticos, plexos nerviosos
-- **Histología**: tipos celulares específicos, matriz extracelular, ultraestructura
+1. **CONCEPTO CLAVE**: Definición precisa
+2. **BASES MOLECULARES/ANATÓMICAS**: Mecanismos esenciales
+3. **APLICACIÓN CLÍNICA**: Diagnóstico y tratamiento
+4. **PUNTOS CRÍTICOS**: Alertas y consideraciones
+5. **REFERENCIAS**: Fuentes verificables
 
-### 3. **NIVEL FARMACOLÓGICO/TERAPÉUTICO (PRECISIÓN CLÍNICA):**
-- **Mecanismo de acción molecular**: sitio de unión exacto, efectos intracelulares
-- **Farmacocinética completa**: absorción, distribución (unión proteica), metabolismo (isoenzimas CYP), excreción
-- **Farmacodinámica**: relación dosis-respuesta, efectos adversos a nivel molecular
-- **Interacciones farmacológicas**: mecanismos de interacción, relevancia clínica
+**CALIDAD > CANTIDAD**: Sé conciso pero completo. Precisión sobre extensión.
 
-### 4. **NIVEL DIAGNÓSTICO/TERAPÉUTICO (EVIDENCIA SÓLIDA):**
-- Criterios diagnósticos internacionales (ej: ESC/ACC, AHA, NICE, SEPAR)
-- Algoritmos diagnósticos y terapéuticos actualizados
-- Niveles de evidencia y grados de recomendación
-- Estudios pivotales y meta-análisis relevantes
+Responde con rigor académico nivel especialización médica."""
 
-## 📊 ESTRUCTURA OBLIGATORIA DE RESPUESTA:
-
-**{'(RESPUESTA ULTRACOMPLETA - MÁXIMO DETALLE)' if complexity_level == 'ultra_compleja' else '(RESPUESTA COMPLETA - ALTO DETALLE)'}**
-
-### 🧪 **1. BASES MOLECULARES Y CELULARES**
-[Detalle mecanismos a nivel molecular y celular]
-
-### 🔬 **2. ANATOMÍA Y ESTRUCTURA**  
-[Descripción topográfica e histológica precisa]
-
-### 💊 **3. FARMACOLOGÍA Y TERAPÉUTICA**
-[Mecanismos farmacológicos y esquemas terapéuticos]
-
-### 🏥 **4. ABORDAJE CLÍNICO**
-[Algoritmos diagnósticos y manejo basado en evidencia]
-
-### 📈 **5. PRONÓSTICO Y SEGUIMIENTO**
-[Curso esperado y monitorización]
-
-### 🎯 **6. PUNTOS CRÍTICOS Y ALERTAS**
-[Complicaciones y signos de alarma]
-
-## 🚨 FILOSOFÍA DE EXCELENCIA:
-
-• **PRECISIÓN QUIRÚRGICA**: Cada detalle anatómico y molecular debe ser exacto
-• **EVIDENCIA SÓLIDA**: Basarse en guías internacionales y literatura de alto impacto
-• **PROFUNDIDAD ACADÉMICA**: Nivel especialización médica avanzada (R4-R5)
-• **RIGOR CIENTÍFICO**: Citación precisa de mecanismos y dosificaciones
-• **ACTUALIZACIÓN**: Información conforme a estándares 2024
-
-**RESPONDE CON LA EXCELENCIA DE UN MÉDICO ACADÉMICO DE PRIMER NIVEL**
-"""
-
-        # COMANDOS ESPECIALES MANTIENEN SUS PROMPTS
+        # Comandos especiales mantienen lógica existente
         if special_command == "revision_nota":
-            return """Eres auditor médico JCI/COFEPRIS/MAYO CLINIC. Evalúa nota con estándares internacionales completos."""
+            return """Eres auditor médico JCI/COFEPRIS. Evalúa nota con estándares completos: datos paciente, motivo consulta, padecimiento, antecedentes, exploración, diagnóstico, plan, legal. Formato: Componentes Presentes, Faltantes, Errores, Cumplimiento %, Recomendaciones."""
         elif special_command == "correccion_nota":
-            return """Corrector notas médicas estándar internacional. Detecta errores con precisión quirúrgica."""
+            return """Corrector notas médicas JCI/COFEPRIS. Detecta errores formato, ortografía médica, dosis, claridad. Formato: Errores Detectados, Nota Corregida, Sugerencias. NO inventes datos."""
         elif special_command == "elaboracion_nota":
-            return """Genera plantilla SOAP completa nivel académico."""
+            return """Genera plantilla SOAP completa: Datos Documento, Datos Paciente, Subjetivo (motivo/padecimiento/antecedentes), Objetivo (vitales/exploración), Análisis (diagnóstico/justificación), Plan (estudios/tratamiento/pronóstico/seguimiento). Marca [COMPLETAR] si falta info."""
         elif special_command == "valoracion":
-            return """Médico consultor nivel internacional. Proporciona análisis completo."""
+            return """Médico consultor Mayo/UpToDate. Proporciona: Resumen Caso, Hipótesis Diagnósticas (probable + 3 diferenciales con justificación), Estudios Sugeridos, Abordaje Terapéutico (dosis), Signos Alarma, Fuentes."""
         elif special_command == "study_mode":
-            return base_prompt + "\n\n**MODO ACADÉMICO AVANZADO**: Enseña como profesor de especialidad médica."
+            return base_prompt + "\n\n**MODO ESTUDIO**: Enseña como profesor especialista. Usa analogías, ejemplos clínicos, explica 'por qué', divide conceptos, casos prácticos."
         else:
             return base_prompt
 
-    def _build_detailed_user_prompt(self, question, domain, special_command=None):
-        """User prompt detallado para respuestas completas"""
+    def _build_efficient_user_prompt(self, question, domain, special_command=None):
+        """User prompt eficiente para optimizar tokens"""
         if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"]:
             return question
         
-        return f"""**CONSULTA MÉDICA DE ALTA ESPECIALIDAD** ({domain})
+        return f"""PREGUNTA MÉDICA ({domain}):
 
 {question}
 
-**INSTRUCCIÓN**: Desarrolla una respuesta académica completa, con profundidad de especialización médica avanzada. 
-Usa todo el espacio necesario para cubrir todos los aspectos con precisión quirúrgica."""
+Responde con PRECISIÓN MÉDICA y ESTRUCTURA CLARA. Optimiza el contenido para máximo valor clínico."""
 
     def _generate_rate_limit_message(self):
         return "⏳ **Sistema en capacidad máxima** - Espera 1-2 minutos para respuestas de alta calidad"
