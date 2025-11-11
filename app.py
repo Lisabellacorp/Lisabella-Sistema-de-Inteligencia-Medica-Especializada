@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 # ✅ Cargar variables de entorno ANTES de importar clientes
 load_dotenv()
 
-# ✅ CORREGIDO: src.groq_client (no src.groq)
-from src.groq_client import GroqClient
+# ✅ CAMBIADO: src.mistral (no src.groq_client)
+from src.mistral import MistralClient
 from src.wrapper import Wrapper, Result
 from src.amplitud_detector import evaluar_y_reformular
 
@@ -17,24 +17,24 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 
 # --- Inicializar clientes ---
 try:
-    groq_client = GroqClient()
+    mistral_client = MistralClient()  # ✅ CAMBIADO: mistral_client
     wrapper = Wrapper()
-    print("✅ Lisabella iniciada correctamente con Groq")
+    print("✅ Lisabella iniciada correctamente con Mistral")  # ✅ CAMBIADO
     print(f"📊 Wrapper stats: {wrapper.get_stats()}")
-    print(f"🤖 Modelo: {groq_client.model}")
+    print(f"🤖 Modelo: {mistral_client.model}")  # ✅ CAMBIADO
 except Exception as e:
     print(f"❌ Error al inicializar: {str(e)}")
-    print("⚠️ Verifica que GROQ_API_KEY esté configurada en Render")
-    groq_client = None
+    print("⚠️ Verifica que MISTRAL_KEY esté configurada en Render")  # ✅ CAMBIADO
+    mistral_client = None  # ✅ CAMBIADO
     wrapper = None
 
 # --- Healthcheck ---
 @app.route('/health')
 def health():
-    if not groq_client or not wrapper:
+    if not mistral_client or not wrapper:  # ✅ CAMBIADO
         return jsonify({
             "status": "error",
-            "message": "Sistema no inicializado - verifica GROQ_API_KEY en Environment Variables",
+            "message": "Sistema no inicializado - verifica MISTRAL_KEY en Environment Variables",  # ✅ CAMBIADO
             "timestamp": str(datetime.now())
         }), 500
     
@@ -42,23 +42,18 @@ def health():
         "status": "ok",
         "timestamp": str(datetime.now()),
         "wrapper_stats": wrapper.get_stats(),
-        "model": groq_client.model,
-        "provider": "Groq"
+        "model": mistral_client.model,  # ✅ CAMBIADO
+        "provider": "Mistral"  # ✅ CAMBIADO
     })
-
-# --- Frontend principal ---
-@app.route('/')
-def index():
-    return render_template('lisabella.html')
 
 # --- API Legacy (no stream) - DEPRECATED pero funcional ---
 @app.route('/ask', methods=['POST'])
 def ask():
     """API sin streaming - mantener por compatibilidad"""
-    if not groq_client or not wrapper:
+    if not mistral_client or not wrapper:  # ✅ CAMBIADO
         return jsonify({
             "status": "error",
-            "response": "⚠️ Sistema no inicializado. Verifica GROQ_API_KEY en Render."
+            "response": "⚠️ Sistema no inicializado. Verifica MISTRAL_KEY en Render."  # ✅ CAMBIADO
         }), 500
     
     try:
@@ -90,7 +85,7 @@ def ask():
         domain = classification.get("domain", "medicina general")
         special_command = classification.get("special_command", None)
         
-        response = groq_client.generate(question, domain, special_command)
+        response = mistral_client.generate(question, domain, special_command)  # ✅ CAMBIADO
         
         return jsonify({
             "status": "approved",
@@ -108,11 +103,11 @@ def ask():
 # --- API Streaming (PRINCIPAL) ---
 @app.route('/ask_stream', methods=['POST'])
 def ask_stream():
-    """API con streaming en tiempo real usando Groq"""
-    if not groq_client or not wrapper:
+    """API con streaming en tiempo real usando Mistral"""  # ✅ CAMBIADO
+    if not mistral_client or not wrapper:  # ✅ CAMBIADO
         return jsonify({
             "status": "error",
-            "response": "⚠️ Sistema no inicializado. Verifica GROQ_API_KEY en Render."
+            "response": "⚠️ Sistema no inicializado. Verifica MISTRAL_KEY en Render."  # ✅ CAMBIADO
         }), 500
     
     try:
@@ -134,7 +129,7 @@ def ask_stream():
                     "type": "metadata",
                     "domain": classification.get("domain", "medicina general"),
                     "confidence": classification.get("confidence", 0.5),
-                    "provider": "Groq"
+                    "provider": "Mistral"  # ✅ CAMBIADO
                 }) + "\n"
                 
                 # Si rechazada o reformular, enviar respuesta completa
@@ -183,23 +178,17 @@ def ask_stream():
                 # Pregunta específica - proceder con streaming
                 yield json.dumps({"type": "init"}) + "\n"
                 
-                # ✅ Stream de Groq con domain y special_command
-                chunk_counter = 0
-                for chunk in groq_client.generate_stream(question, domain, special_command):
-                    if chunk == "__STREAM_DONE__":
-                        yield json.dumps({"type": "done"}) + "\n"
-                        break
-                    else:
-                        chunk_data = json.dumps({"type": "chunk", "content": chunk}) + "\n"
-                        yield chunk_data
-                        chunk_counter += 1
-                        
-                        # ✅ Enviar ping cada 50 chunks para mantener conexión activa
-                        if chunk_counter % 50 == 0:
-                            yield json.dumps({"type": "ping", "chunk_count": chunk_counter}) + "\n"
+                # ✅ IMPORTANTE: Mistral no tiene streaming nativo, usar generate normal
+                response = mistral_client.generate(question, domain, special_command)  # ✅ CAMBIADO
                 
-                # Ping final para mantener conexión
-                yield json.dumps({"type": "ping", "final": True}) + "\n"
+                # Simular streaming dividiendo la respuesta
+                chunk_size = 100
+                for i in range(0, len(response), chunk_size):
+                    chunk = response[i:i + chunk_size]
+                    yield json.dumps({"type": "chunk", "content": chunk}) + "\n"
+                    time.sleep(0.01)  # Pequeña pausa para efecto streaming
+                
+                yield json.dumps({"type": "done"}) + "\n"
                 
             except Exception as e:
                 print(f"❌ Error en streaming: {str(e)}")
@@ -238,5 +227,5 @@ os.makedirs('logs', exist_ok=True)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"🚀 Iniciando Lisabella con Groq en puerto {port}")
+    print(f"🚀 Iniciando Lisabella con Mistral en puerto {port}")  # ✅ CAMBIADO
     app.run(host="0.0.0.0", port=port, debug=False)
