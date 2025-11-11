@@ -28,6 +28,11 @@ except Exception as e:
     mistral_client = None  # ✅ CAMBIADO
     wrapper = None
 
+# --- Ruta principal ---
+@app.route('/')
+def index():
+    return render_template('lisabella.html')
+
 # --- Healthcheck ---
 @app.route('/health')
 def health():
