@@ -2,13 +2,13 @@ import sys
 sys.path.insert(0, '/home/ray/lisabella')
 
 from src.wrapper import Wrapper, Result
-from src.groq_client import GroqClient  # ✅ CORREGIDO: era src.groq
+from src.openai_client import OpenAIClient  # ✅ CAMBIADO: era src.groq_client
 from src.amplitud_detector import evaluar_y_reformular
 
 class Lisabella:
     def __init__(self):
         self.wrapper = Wrapper()
-        self.groq = GroqClient()
+        self.openai = OpenAIClient()  # ✅ CAMBIADO: era self.groq
     
     def ask(self, question):
         """Procesar pregunta end-to-end con manejo robusto de errores y comandos especiales"""
@@ -82,11 +82,11 @@ class Lisabella:
                         "response": reformulacion
                     }
                 else:
-                    print(f"🔍 [MAIN] ✓ Pregunta específica - procediendo a Groq")
+                    print(f"🔍 [MAIN] ✓ Pregunta específica - procediendo a OpenAI")  # ✅ CAMBIADO
             
             # Generar respuesta
             try:
-                response = self.groq.generate(
+                response = self.openai.generate(  # ✅ CAMBIADO: era self.groq.generate
                     question=question,
                     domain=domain,
                     special_command=special_command
@@ -100,9 +100,9 @@ class Lisabella:
                     "response": response
                 }
                 
-            except Exception as groq_error:  # ✅ CORREGIDO: era mistral_error
-                # Error específico de Groq API
-                print(f"❌ Error en Groq API: {str(groq_error)}")
+            except Exception as openai_error:  # ✅ CAMBIADO: era groq_error
+                # Error específico de OpenAI API
+                print(f"❌ Error en OpenAI API: {str(openai_error)}")
                 return {
                     "status": "error",
                     "domain": domain,
@@ -110,7 +110,7 @@ class Lisabella:
 
 Ocurrió un problema al comunicarse con el servicio de inteligencia artificial.
 
-**Detalles técnicos**: {str(groq_error)[:150]}
+**Detalles técnicos**: {str(openai_error)[:150]}
 
 **Sugerencias**:
 • Intenta reformular tu pregunta
@@ -198,7 +198,7 @@ Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guía
         
         for section in sections:
             try:
-                content = self.groq.generate_chunk(
+                content = self.openai.generate_chunk(  # ✅ CAMBIADO: era self.groq.generate_chunk
                     prompt=section['prompt'],
                     domain=domain,
                     max_tokens=section['max_tokens']
@@ -304,7 +304,7 @@ Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guía
         # Generar cada sección
         for title, prompt, max_tok in sections:
             try:
-                content = self.groq.generate_chunk(
+                content = self.openai.generate_chunk(  # ✅ CAMBIADO: era self.groq.generate_chunk
                     prompt=prompt,
                     domain=domain,
                     max_tokens=max_tok
@@ -338,33 +338,33 @@ Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guía
 ### 📋 **NOTAS MÉDICAS**
 
 **1. REVISIÓN DE NOTA MÉDICA**
-```
 revisar nota médica [pegar nota aquí]
-```
+
+text
 Evalúa completitud según estándares JCI, Clínica Mayo y COFEPRIS.
 
 ---
 
 **2. CORRECCIÓN DE NOTA MÉDICA**
-```
 corregir nota médica [pegar nota aquí]
-```
+
+text
 Identifica y corrige errores de formato, ortografía, dosis y abreviaturas.
 
 ---
 
 **3. ELABORACIÓN DE NOTA MÉDICA**
-```
 elaborar nota médica [datos del paciente]
-```
+
+text
 Genera plantilla SOAP completa con campos obligatorios.
 
 ---
 
 **4. VALORACIÓN DE PACIENTE**
-```
 valoracion de paciente [caso clínico]
-```
+
+text
 Orienta diagnóstico diferencial y abordaje terapéutico.
 
 ---
@@ -372,15 +372,15 @@ Orienta diagnóstico diferencial y abordaje terapéutico.
 ### 📚 **MODO ESTUDIO**
 
 **APOYO EN ESTUDIO**
-```
 apoyo en estudio [tema médico]
-```
+
+text
 Modo educativo con analogías, ejemplos clínicos y correlación práctica.
 
 **Ejemplos:**
 - "apoyo en estudio ciclo de Krebs"
 - "apoyo en estudio anatomía del plexo braquial"
-- "apoyo en estudio farmacología de betabloqueantes"
+- "apoyo en estudio farmacología de betabloqueadores"
 
 ---
 
@@ -394,7 +394,7 @@ Modo educativo con analogías, ejemplos clínicos y correlación práctica.
     
     def cli(self):
         """Modo interactivo para pruebas locales"""
-        print("\n🏥 Lisabella - Asistente Médico IA (Groq)")
+        print("\n🏥 Lisabella - Asistente Médico IA (OpenAI)")  # ✅ CAMBIADO
         print("=" * 60)
         print("Comandos disponibles:")
         print("  • Pregunta médica normal")
