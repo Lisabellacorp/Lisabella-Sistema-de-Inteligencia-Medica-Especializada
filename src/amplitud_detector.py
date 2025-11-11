@@ -1,0 +1,445 @@
+"""
+Módulo de Detección de Amplitud Semántica
+==========================================
+
+Intercepta preguntas médicamente válidas pero demasiado amplias
+antes de consumir tokens en Mistral, reformulándolas educativamente.
+"""
+
+import re
+import unicodedata
+from typing import Dict, List, Tuple
+
+
+def _norm(text: str) -> str:
+    """Normaliza texto: minúsculas y sin acentos para comparación robusta."""
+    if text is None:
+        return ""
+    text = text.lower().strip()
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    return text
+
+# ═══════════════════════════════════════════════════════
+# DICCIONARIOS DE DETECCIÓN
+# ═══════════════════════════════════════════════════════
+
+ORGANOS_AMPLIOS = [
+    "corazón", "corazon", "cardiaco", "cardíaco",
+    "cerebro", "cerebral", "sistema nervioso",
+    "riñón", "riñon", "renal", "nefron",
+    "hígado", "higado", "hepatico", "hepático",
+    "pulmón", "pulmon", "pulmonar", "respiratorio",
+    "estómago", "estomago", "gastrico", "gástrico",
+    "intestino", "intestinal",
+    "sistema cardiovascular",
+    "sistema respiratorio",
+    "sistema digestivo",
+    "sistema nervioso",
+    "sistema endocrino",
+    "sistema inmune",
+    "aparato locomotor",
+    "sistema musculoesquelético"
+]
+
+PALABRAS_AMPLIAS = [
+    "estructura de", "estructura del", "estructura de la",
+    "estructura anatomica", "estructura anatómica",
+    "estructura completa", "estructura del",
+    "anatomía de", "anatomia de", "anatomía del", "anatomia del",
+    "anatomia completa", "anatomía completa",
+    "todo sobre", "toda la", "todo el",
+    "completo sobre", "completa de",
+    "todo acerca de", "todo lo relacionado",
+    "funcionamiento de", "funcionamiento del",
+    "fisiología de", "fisiologia de", "fisiología del",
+    "sistema completo", "sistema entero",
+    "órgano completo", "organo completo"
+]
+
+REFORMULACIONES_POR_DOMINIO = {
+    "anatomía": {
+        "corazón": [
+            "Irrigación arterial del ventrículo izquierdo por ramas de la arteria coronaria descendente anterior",
+            "Sistema de conducción: nodo SA, nodo AV, Haz de His y fibras de Purkinje (trayectos y relaciones)",
+            "Histología del miocardio: cardiomiocitos, discos intercalares y uniones GAP",
+            "Válvula mitral: valvas, cuerdas tendinosas, músculos papilares y anillo fibroso",
+            "Relaciones pericárdicas del surco auriculoventricular izquierdo"
+        ],
+        "cerebro": [
+            "Irrigación de la cápsula interna: ramas lenticuloestriadas de la arteria cerebral media",
+            "Núcleo subtalámico de Luys: límites, aferencias y eferencias",
+            "Velo medular inferior y cuarto ventrículo: límites anatómicos y relaciones",
+            "Fascículo arqueado: trayecto y correlación clínica (afasia de conducción)",
+            "Corteza precentral (área 4): somatotopía y arterias penetrantes"
+        ],
+        "riñón": [
+            "Irrigación del glomérulo: arteriola aferente vs eferente y red capilar peritubular",
+            "Histología del túbulo proximal: borde en cepillo y transportadores de membrana",
+            "Relaciones del hilio renal: anterior→posterior (vena renal, arteria renal, pelvis renal)",
+            "Asa de Henle en nefronas yuxtamedulares: trayecto y vasa recta",
+            "Estrecheces del uréter: unión pieloureteral, cruce con vasos ilíacos, segmento intramural"
+        ],
+        "hígado": [
+            "Segmento VIII de Couinaud: límites vasculares y drenaje venoso",
+            "Tríada portal: arteria hepática, vena porta y conducto biliar (espacios de Kiernan)",
+            "Irrigación de la vesícula biliar: arteria cística y variaciones anatómicas",
+            "Ligamento venoso (Arancio) y su relación con la vena hepática izquierda",
+            "Histología del lobulillo hepático: sinusoides, placas hepatocitarias y células de Kupffer"
+        ],
+        "pulmón": [
+            "Segmento broncopulmonar apical del lóbulo superior derecho: bronquio, arteria y vena segmentaria",
+            "Pleura costodiafragmática: recesos pleurales y líneas de reflexión",
+            "Ácino pulmonar: límites histológicos y barrera hematoalveolar",
+            "Irrigación bronquial: ramas de la aorta torácica y drenaje venoso",
+            "Relación del bronquio principal derecho con la arteria pulmonar derecha (eparterial/hiparterial)"
+        ],
+        "sistema cardiovascular": [
+            "Anatomía del corazón y grandes vasos",
+            "Sistema arterial sistémico (aorta y sus ramas principales)",
+            "Sistema venoso sistémico (vena cava superior e inferior)",
+            "Circulación coronaria (arterias y venas coronarias)",
+            "Circulación pulmonar (arterias y venas pulmonares)"
+        ],
+        "sistema respiratorio": [
+            "Anatomía de las vías aéreas superiores (fosas nasales, faringe, laringe)",
+            "Anatomía del árbol traqueobronquial",
+            "Estructura alveolar y barrera hemato-aérea",
+            "Músculos respiratorios (diafragma, intercostales, accesorios)",
+            "Inervación del sistema respiratorio"
+        ],
+        "sistema digestivo": [
+            "Anatomía del esófago (porciones cervical, torácica, abdominal)",
+            "Anatomía gástrica (cardias, fondo, cuerpo, antro, píloro)",
+            "Anatomía del intestino delgado (duodeno, yeyuno, íleon)",
+            "Anatomía del intestino grueso (ciego, colon, recto)",
+            "Anatomía del páncreas y vías biliares"
+        ]
+    },
+    "fisiología": {
+        "corazón": [
+            "Mecanismo de contracción cardíaca (fase sistólica y diastólica)",
+            "Ciclo cardíaco completo (sístole auricular, sístole ventricular, diástole)",
+            "Regulación del gasto cardíaco (ley de Frank-Starling)",
+            "Electrofisiología cardíaca (potencial de acción miocárdico)",
+            "Regulación autonómica de la frecuencia cardíaca"
+        ],
+        "cerebro": [
+            "Fisiología de la sinapsis (liberación y recaptación de neurotransmisores)",
+            "Potencial de acción neuronal y propagación",
+            "Fisiología del sistema límbico (emociones, memoria)",
+            "Fisiología del sueño (ciclos NREM y REM)",
+            "Fisiología del sistema motor (corteza motora, vías piramidales)"
+        ],
+        "riñón": [
+            "Filtración glomerular (presiones y fuerzas de Starling)",
+            "Reabsorción tubular (proximal, asa de Henle, distal)",
+            "Mecanismo de concentración y dilución de la orina",
+            "Regulación del balance ácido-base renal",
+            "Regulación de la presión arterial (sistema renina-angiotensina-aldosterona)"
+        ],
+        "hígado": [
+            "Metabolismo hepático de carbohidratos (glucogénesis, glucogenólisis)",
+            "Metabolismo hepático de lípidos (síntesis de ácidos biliares)",
+            "Metabolismo hepático de proteínas (síntesis de albúmina)",
+            "Función detoxificadora del hígado (citocromo P450)",
+            "Secreción biliar y función de la vesícula biliar"
+        ],
+        "pulmón": [
+            "Mecánica ventilatoria (volúmenes y capacidades pulmonares)",
+            "Intercambio gaseoso (difusión de O₂ y CO₂)",
+            "Regulación de la ventilación (quimiorreceptores centrales y periféricos)",
+            "Relación ventilación-perfusión (V/Q)",
+            "Transporte de gases en sangre (hemoglobina, curva de disociación)"
+        ]
+    },
+    "farmacología": {
+        "sistema cardiovascular": [
+            "Fármacos antihipertensivos (mecanismo de acción y dosis)",
+            "Fármacos antiarrítmicos (clasificación de Vaughan Williams)",
+            "Fármacos para insuficiencia cardíaca (IECA, ARA-II, betabloqueantes)",
+            "Anticoagulantes y antiagregantes plaquetarios",
+            "Fármacos hipolipemiantes (estatinas, fibratos, ezetimiba)"
+        ]
+    }
+}
+
+
+# ═══════════════════════════════════════════════════════
+# FUNCIONES PRINCIPALES
+# ═══════════════════════════════════════════════════════
+
+def detectar_amplitud(query: str, domain: str) -> int:
+    """
+    Detecta el nivel de amplitud semántica de una pregunta.
+    
+    Args:
+        query: Pregunta del usuario
+        domain: Dominio médico detectado
+    
+    Returns:
+        Score de amplitud (0-10):
+        - 0-3: Ultra específica (permitir Mistral)
+        - 4-6: Específica/Moderada (permitir Mistral)
+        - 7-8: Amplia (reformular)
+        - 9-10: Ultra amplia (reformular)
+    """
+    query_lower = query.lower().strip()
+    score = 0
+    
+    # DEBUG: Logging detallado
+    print(f"🔍 [AMPLITUD] Query analizada: '{query_lower}'")
+    print(f"🔍 [AMPLITUD] Dominio: '{domain}'")
+    
+    # ═══════════════════════════════════════════════════════
+    # DETECCIÓN 1: Palabras amplias (alta puntuación)
+    # ═══════════════════════════════════════════════════════
+    palabra_detectada = None
+    for palabra in PALABRAS_AMPLIAS:
+        if palabra in query_lower:
+            palabra_detectada = palabra
+            score += 3
+            print(f"🔍 [AMPLITUD] ✓ Palabra amplia detectada: '{palabra}' (+3 puntos)")
+            break  # Solo contar una vez
+    
+    # DETECCIÓN ADICIONAL: "estructura" + órgano (patrón común)
+    if not palabra_detectada:
+        if "estructura" in query_lower and any(organo in query_lower for organo in ORGANOS_AMPLIOS[:15]):
+            palabra_detectada = "estructura + órgano"
+            score += 3
+            print(f"🔍 [AMPLITUD] ✓ Patrón 'estructura + órgano' detectado (+3 puntos)")
+    
+    # DETECCIÓN ADICIONAL: "anatomia" / "anatomía" + órgano sin más especificación
+    if not palabra_detectada:
+        if ("anatomia" in query_lower or "anatomía" in query_lower) and any(organo in query_lower for organo in ORGANOS_AMPLIOS[:15]):
+            # Verificar que no tenga términos muy específicos
+            if not any(term in query_lower for term in ["irrigación", "irrigacion", "inervación", "inervacion", "cámara", "camara", "válvula", "valvula"]):
+                palabra_detectada = "anatomia + órgano"
+                score += 3
+                print(f"🔍 [AMPLITUD] ✓ Patrón 'anatomía + órgano' detectado (+3 puntos)")
+    
+    if not palabra_detectada:
+        print(f"🔍 [AMPLITUD] ✗ No se detectaron palabras amplias")
+    
+    # ═══════════════════════════════════════════════════════
+    # DETECCIÓN 2: Órganos completos sin especificar
+    # ═══════════════════════════════════════════════════════
+    organos_encontrados = []
+    for organo in ORGANOS_AMPLIOS:
+        if organo in query_lower:
+            organos_encontrados.append(organo)
+    
+    if organos_encontrados:
+        print(f"🔍 [AMPLITUD] ✓ Órganos detectados: {organos_encontrados}")
+        
+        # Si menciona órgano pero no especifica parte/componente
+        tiene_especificacion = any([
+            "cámara" in query_lower or "camara" in query_lower,
+            "válvula" in query_lower or "valvula" in query_lower,
+            "arteria" in query_lower,
+            "vena" in query_lower,
+            "nervio" in query_lower,
+            "músculo" in query_lower or "musculo" in query_lower,
+            "hueso" in query_lower,
+            "lóbulo" in query_lower or "lobulo" in query_lower,
+            "segmento" in query_lower,
+            "sistema de" in query_lower,
+            "mecanismo" in query_lower,
+            "proceso" in query_lower,
+            "función de" in query_lower or "funcion de" in query_lower,
+            "irrigación" in query_lower or "irrigacion" in query_lower,
+            "inervación" in query_lower or "inervacion" in query_lower
+        ])
+        
+        if not tiene_especificacion:
+            score += 4  # Órgano completo sin especificar
+            print(f"🔍 [AMPLITUD] ✗ Sin especificación (+4 puntos)")
+        else:
+            score += 1  # Órgano con alguna especificación (menos amplio)
+            print(f"🔍 [AMPLITUD] ✓ Con especificación (+1 punto)")
+    else:
+        print(f"🔍 [AMPLITUD] ✗ No se detectaron órganos amplios")
+    
+    # ═══════════════════════════════════════════════════════
+    # DETECCIÓN 3: Patrones de preguntas ultra amplias
+    # ═══════════════════════════════════════════════════════
+    patrones_ultra_amplios = [
+        r"todo sobre",
+        r"todo el",
+        r"toda la",
+        r"completo sobre",
+        r"estructura completa",
+        r"anatomía completa",
+        r"fisiología completa"
+    ]
+    
+    patron_detectado = None
+    for patron in patrones_ultra_amplios:
+        if re.search(patron, query_lower):
+            patron_detectado = patron
+            score += 5
+            print(f"🔍 [AMPLITUD] ✓ Patrón ultra amplio detectado: '{patron}' (+5 puntos)")
+            break
+    
+    if not patron_detectado:
+        print(f"🔍 [AMPLITUD] ✗ No se detectaron patrones ultra amplios")
+    
+    # ═══════════════════════════════════════════════════════
+    # DETECCIÓN 4: Longitud de pregunta (preguntas muy cortas suelen ser amplias)
+    # ═══════════════════════════════════════════════════════
+    palabras = query_lower.split()
+    if len(palabras) <= 5 and any(organo in query_lower for organo in ORGANOS_AMPLIOS[:10]):
+        score += 2
+    
+    # ═══════════════════════════════════════════════════════
+    # DETECCIÓN 5: Ausencia de términos específicos
+    # ═══════════════════════════════════════════════════════
+    terminos_especificos = [
+        "dosis", "mecanismo", "causa", "síntoma", "signo",
+        "diagnóstico", "tratamiento", "anatomía de la",
+        "anatomía del", "irrigación", "inervación",
+        "ubicación", "relación", "función de", "efecto"
+    ]
+    
+    tiene_termino_especifico = any(term in query_lower for term in terminos_especificos)
+    if not tiene_termino_especifico and score > 0:
+        score += 1  # Refuerza la amplitud si no hay términos específicos
+        print(f"🔍 [AMPLITUD] ✗ Sin términos específicos (+1 punto refuerzo)")
+    else:
+        if tiene_termino_especifico:
+            print(f"🔍 [AMPLITUD] ✓ Términos específicos detectados (sin refuerzo)")
+    
+    # Limitar score máximo a 10
+    score_final = min(score, 10)
+    print(f"🔍 [AMPLITUD] 📊 Score final: {score_final}/10 (threshold: 7)")
+    return score_final
+
+
+def generar_reformulacion(query: str, domain: str) -> str:
+    """
+    Genera mensaje educativo con reformulaciones específicas (ultra-concretas),
+    con matching insensible a acentos y dominio-agnóstico.
+    """
+    query_norm = _norm(query)
+
+    # 1) Intentar detectar órgano por lista amplia (normalizada)
+    organo_detectado = None
+    organos_norm = [(item, _norm(item)) for item in ORGANOS_AMPLIOS]
+    for original, normed in organos_norm:
+        if normed and normed in query_norm:
+            organo_detectado = original
+            break
+
+    # 2) Buscar reformulaciones PREDEFINIDAS escaneando TODOS los dominios
+    reformulaciones = None
+    mejor_match_key = None
+    for dom, m in REFORMULACIONES_POR_DOMINIO.items():
+        for key, value in m.items():
+            if _norm(key) in query_norm:
+                reformulaciones = value
+                mejor_match_key = key
+                organo_detectado = key
+                break
+        if reformulaciones:
+            break
+
+    # 3) Si no hubo match por clave, pero sí órgano, intentar mapa por órgano
+    if not reformulaciones and organo_detectado:
+        # Preferir las listas del dominio 'anatomía' si existen
+        anat_dict = REFORMULACIONES_POR_DOMINIO.get("anatomía") or REFORMULACIONES_POR_DOMINIO.get("anatomia")
+        if anat_dict:
+            # Buscar clave con o sin acentos
+            for key, value in anat_dict.items():
+                if _norm(key) == _norm(organo_detectado):
+                    reformulaciones = value
+                    mejor_match_key = key
+                    break
+
+    # 4) Si sigue sin haber predefinidas, generar genéricas (pero específicas)
+    if not reformulaciones:
+        # Intentar un nombre de órgano legible aún si venía normalizado
+        organo_legible = organo_detectado or "tema"
+        reformulaciones = _generar_reformulaciones_genericas(query_norm, domain, organo_legible)
+
+    # 5) Construir mensaje educativo
+    mensaje = f"""💡 **Tu pregunta requiere mayor precisión clínica**
+
+Tu consulta sobre **"{query}"** es médicamente válida, pero abarca un tema demasiado amplio que requeriría una respuesta extensa (potencialmente >3000 tokens).
+
+**📋 Reformulaciones sugeridas:**
+"""
+
+    for i, reformulacion in enumerate(reformulaciones[:5], 1):
+        mensaje += f"{i}. {reformulacion}\n"
+
+    mensaje += "\n**Sugerencia:** Copia una de las opciones anteriores para obtener una respuesta completa sin cortes."
+    return mensaje
+
+
+def _generar_reformulaciones_genericas(query_lower: str, domain: str, organo: str) -> List[str]:
+    """Genera reformulaciones genéricas cuando no hay predefinidas"""
+    
+    reformulaciones = []
+    
+    if "anatomía" in query_lower or domain == "anatomía":
+        reformulaciones = [
+            f"Anatomía macroscópica del {organo} (estructura general)",
+            f"Anatomía microscópica del {organo} (estructura histológica)",
+            f"Irrigación arterial y venosa del {organo}",
+            f"Inervación del {organo} (nervios principales)",
+            f"Relaciones anatómicas del {organo} (topografía)"
+        ]
+    elif "fisiología" in query_lower or domain == "fisiología":
+        reformulaciones = [
+            f"Mecanismo de funcionamiento del {organo}",
+            f"Regulación de la función del {organo}",
+            f"Integración del {organo} en sistemas corporales",
+            f"Fisiopatología de las disfunciones del {organo}",
+            f"Homeostasis y el {organo}"
+        ]
+    elif "farmacología" in query_lower or domain == "farmacología":
+        reformulaciones = [
+            f"Mecanismo de acción de fármacos que actúan en el {organo}",
+            f"Farmacocinética de fármacos relacionados con el {organo}",
+            f"Interacciones farmacológicas en el {organo}",
+            f"Dosis y vías de administración de fármacos para el {organo}",
+            f"Efectos adversos de fármacos que afectan al {organo}"
+        ]
+    else:
+        reformulaciones = [
+            f"Estructura específica del {organo}",
+            f"Función principal del {organo}",
+            f"Relación del {organo} con otros sistemas",
+            f"Patologías más comunes del {organo}",
+            f"Diagnóstico y tratamiento relacionado con el {organo}"
+        ]
+    
+    return reformulaciones
+
+
+# ═══════════════════════════════════════════════════════
+# FUNCIÓN DE INTEGRACIÓN
+# ═══════════════════════════════════════════════════════
+
+def evaluar_y_reformular(query: str, domain: str) -> Tuple[bool, str]:
+    """
+    Evalúa si la pregunta es demasiado amplia y retorna reformulación si es necesario.
+    
+    Args:
+        query: Pregunta del usuario
+        domain: Dominio médico detectado
+    
+    Returns:
+        Tuple (es_amplia: bool, respuesta: str)
+        - Si es_amplia=True: respuesta contiene reformulación educativa
+        - Si es_amplia=False: respuesta es vacía (proceder a Mistral)
+    """
+    amplitud_score = detectar_amplitud(query, domain)
+    
+    # Threshold: score >= 7 requiere reformulación
+    if amplitud_score >= 7:
+        reformulacion = generar_reformulacion(query, domain)
+        return (True, reformulacion)
+    
+    # Score < 7: pregunta específica, permitir Mistral
+    return (False, "")
