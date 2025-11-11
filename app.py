@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 # ✅ Cargar variables de entorno ANTES de importar clientes
 load_dotenv()
 
-# ✅ CAMBIADO: src.mistral (no src.groq_client)
-from src.mistral import MistralClient
+# ✅ CAMBIADO: src.openai_client (no src.mistral)
+from src.openai_client import OpenAIClient
 from src.wrapper import Wrapper, Result
 from src.amplitud_detector import evaluar_y_reformular
 
@@ -17,15 +17,15 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 
 # --- Inicializar clientes ---
 try:
-    mistral_client = MistralClient()  # ✅ CAMBIADO: mistral_client
+    openai_client = OpenAIClient()  # ✅ CAMBIADO: openai_client
     wrapper = Wrapper()
-    print("✅ Lisabella iniciada correctamente con Mistral")  # ✅ CAMBIADO
+    print("✅ Lisabella iniciada correctamente con OpenAI")  # ✅ CAMBIADO
     print(f"📊 Wrapper stats: {wrapper.get_stats()}")
-    print(f"🤖 Modelo: {mistral_client.model}")  # ✅ CAMBIADO
+    print(f"🤖 Modelo: {openai_client.model}")  # ✅ CAMBIADO
 except Exception as e:
     print(f"❌ Error al inicializar: {str(e)}")
-    print("⚠️ Verifica que MISTRAL_KEY esté configurada en Render")  # ✅ CAMBIADO
-    mistral_client = None  # ✅ CAMBIADO
+    print("⚠️ Verifica que OPENAI_API_KEY esté configurada en Render")  # ✅ CAMBIADO
+    openai_client = None  # ✅ CAMBIADO
     wrapper = None
 
 # --- Ruta principal ---
@@ -36,10 +36,10 @@ def index():
 # --- Healthcheck ---
 @app.route('/health')
 def health():
-    if not mistral_client or not wrapper:  # ✅ CAMBIADO
+    if not openai_client or not wrapper:  # ✅ CAMBIADO
         return jsonify({
             "status": "error",
-            "message": "Sistema no inicializado - verifica MISTRAL_KEY en Environment Variables",  # ✅ CAMBIADO
+            "message": "Sistema no inicializado - verifica OPENAI_API_KEY en Environment Variables",  # ✅ CAMBIADO
             "timestamp": str(datetime.now())
         }), 500
     
@@ -47,18 +47,18 @@ def health():
         "status": "ok",
         "timestamp": str(datetime.now()),
         "wrapper_stats": wrapper.get_stats(),
-        "model": mistral_client.model,  # ✅ CAMBIADO
-        "provider": "Mistral"  # ✅ CAMBIADO
+        "model": openai_client.model,  # ✅ CAMBIADO
+        "provider": "OpenAI"  # ✅ CAMBIADO
     })
 
 # --- API Legacy (no stream) - DEPRECATED pero funcional ---
 @app.route('/ask', methods=['POST'])
 def ask():
     """API sin streaming - mantener por compatibilidad"""
-    if not mistral_client or not wrapper:  # ✅ CAMBIADO
+    if not openai_client or not wrapper:  # ✅ CAMBIADO
         return jsonify({
             "status": "error",
-            "response": "⚠️ Sistema no inicializado. Verifica MISTRAL_KEY en Render."  # ✅ CAMBIADO
+            "response": "⚠️ Sistema no inicializado. Verifica OPENAI_API_KEY en Render."  # ✅ CAMBIADO
         }), 500
     
     try:
@@ -90,7 +90,7 @@ def ask():
         domain = classification.get("domain", "medicina general")
         special_command = classification.get("special_command", None)
         
-        response = mistral_client.generate(question, domain, special_command)  # ✅ CAMBIADO
+        response = openai_client.generate(question, domain, special_command)  # ✅ CAMBIADO
         
         return jsonify({
             "status": "approved",
@@ -108,11 +108,11 @@ def ask():
 # --- API Streaming (PRINCIPAL) ---
 @app.route('/ask_stream', methods=['POST'])
 def ask_stream():
-    """API con streaming en tiempo real usando Mistral"""  # ✅ CAMBIADO
-    if not mistral_client or not wrapper:  # ✅ CAMBIADO
+    """API con streaming en tiempo real usando OpenAI"""  # ✅ CAMBIADO
+    if not openai_client or not wrapper:  # ✅ CAMBIADO
         return jsonify({
             "status": "error",
-            "response": "⚠️ Sistema no inicializado. Verifica MISTRAL_KEY en Render."  # ✅ CAMBIADO
+            "response": "⚠️ Sistema no inicializado. Verifica OPENAI_API_KEY en Render."  # ✅ CAMBIADO
         }), 500
     
     try:
@@ -134,7 +134,7 @@ def ask_stream():
                     "type": "metadata",
                     "domain": classification.get("domain", "medicina general"),
                     "confidence": classification.get("confidence", 0.5),
-                    "provider": "Mistral"  # ✅ CAMBIADO
+                    "provider": "OpenAI"  # ✅ CAMBIADO
                 }) + "\n"
                 
                 # Si rechazada o reformular, enviar respuesta completa
@@ -183,17 +183,13 @@ def ask_stream():
                 # Pregunta específica - proceder con streaming
                 yield json.dumps({"type": "init"}) + "\n"
                 
-                # ✅ IMPORTANTE: Mistral no tiene streaming nativo, usar generate normal
-                response = mistral_client.generate(question, domain, special_command)  # ✅ CAMBIADO
-                
-                # Simular streaming dividiendo la respuesta
-                chunk_size = 100
-                for i in range(0, len(response), chunk_size):
-                    chunk = response[i:i + chunk_size]
-                    yield json.dumps({"type": "chunk", "content": chunk}) + "\n"
-                    time.sleep(0.01)  # Pequeña pausa para efecto streaming
-                
-                yield json.dumps({"type": "done"}) + "\n"
+                # ✅ IMPORTANTE: OpenAI SÍ tiene streaming nativo
+                for chunk in openai_client.generate_stream(question, domain, special_command):
+                    if chunk == "__STREAM_DONE__":
+                        yield json.dumps({"type": "done"}) + "\n"
+                        break
+                    else:
+                        yield json.dumps({"type": "chunk", "content": chunk}) + "\n"
                 
             except Exception as e:
                 print(f"❌ Error en streaming: {str(e)}")
@@ -232,5 +228,5 @@ os.makedirs('logs', exist_ok=True)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"🚀 Iniciando Lisabella con Mistral en puerto {port}")  # ✅ CAMBIADO
+    print(f"🚀 Iniciando Lisabella con OpenAI en puerto {port}")  # ✅ CAMBIADO
     app.run(host="0.0.0.0", port=port, debug=False)
