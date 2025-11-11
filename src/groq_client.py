@@ -1,38 +1,25 @@
-import os
 import time
-from groq import Groq
+from mistralai import Mistral
+from src.config import MISTRAL_KEY
 
-class GroqClient:
+class MistralClient:
     def __init__(self):
-        api_key = os.environ.get("GROQ_API_KEY")
-        if not api_key:
-            raise Exception("GROQ_API_KEY no configurada")
-        
-        self.client = Groq(api_key=api_key)
-        self.model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
-        
-        # 🎯 CONFIGURACIÓN OPTIMIZADA PARA GROQ
-        self.temp = float(os.environ.get("GROQ_TEMP", "0.4"))
-        # ✅ Groq necesita MÁS tokens que Mistral para misma calidad
-        self.max_tokens = int(os.environ.get("GROQ_MAX_TOKENS", "8000"))
-        
+        self.client = Mistral(api_key=MISTRAL_KEY)
+        self.model = "mistral-medium-latest"
+        self.temp = 0.3
         self.max_retries = 3
         self.base_retry_delay = 5
-        
-        print(f"✅ GroqClient iniciado - Modelo: {self.model}")
     
     def generate(self, question, domain, special_command=None):
-        """Generar respuesta con retry automático y comandos especiales"""
-        
         for attempt in range(self.max_retries):
             try:
                 system_msg = self._build_system_prompt(domain, special_command)
                 user_msg = self._build_user_prompt(question, domain, special_command)
                 
-                response = self.client.chat.completions.create(
+                response = self.client.chat.complete(
                     model=self.model,
                     temperature=self.temp,
-                    max_tokens=self.max_tokens,
+                    max_tokens=4000,
                     messages=[
                         {"role": "system", "content": system_msg},
                         {"role": "user", "content": user_msg}
@@ -53,12 +40,8 @@ class GroqClient:
                     else:
                         return self._generate_rate_limit_message()
                 
-                elif "authentication" in error_str or "api key" in error_str or "unauthorized" in error_str:
-                    return """⚠️ **Error de Autenticación**
-
-La API key de Groq no es válida o ha expirado.
-
-**Contacta al administrador del sistema.**"""
+                elif "authentication" in error_str or "api key" in error_str:
+                    return "⚠️ **Error de Autenticación**\n\nLa API key de Mistral no es válida o ha expirado.\n\n**Contacta al administrador del sistema.**"
                 
                 elif "network" in error_str or "connection" in error_str:
                     if attempt < self.max_retries - 1:
@@ -66,98 +49,15 @@ La API key de Groq no es válida o ha expirado.
                         time.sleep(2)
                         continue
                     else:
-                        return """⚠️ **Error de Conexión**
-
-No se pudo conectar con el servicio de IA.
-
-**Por favor, verifica tu conexión a internet e intenta nuevamente.**"""
+                        return "⚠️ **Error de Conexión**\n\nNo se pudo conectar con el servicio de IA.\n\n**Por favor, verifica tu conexión a internet e intenta nuevamente.**"
                 
                 else:
                     print(f"❌ Error inesperado: {str(e)}")
-                    return f"""⚠️ **Error del Sistema**
-
-Ha ocurrido un error inesperado al procesar tu pregunta.
-
-**Detalles técnicos:** {str(e)[:200]}
-
-Por favor, intenta reformular tu pregunta o contacta al soporte."""
+                    return f"⚠️ **Error del Sistema**\n\nHa ocurrido un error inesperado al procesar tu pregunta.\n\n**Detalles técnicos:** {str(e)[:200]}\n\nPor favor, intenta reformular tu pregunta o contacta al soporte."
         
         return self._generate_rate_limit_message()
     
-    def generate_stream(self, question, domain, special_command=None):
-        """
-        🆕 Generar respuesta en STREAMING (necesario para app.py)
-        Yields chunks de texto en tiempo real
-        """
-        try:
-            system_msg = self._build_system_prompt(domain, special_command)
-            user_msg = self._build_user_prompt(question, domain, special_command)
-            
-            # Llamada a Groq con streaming activado
-            stream = self.client.chat.completions.create(
-                model=self.model,
-                temperature=self.temp,
-                max_tokens=self.max_tokens,
-                messages=[
-                    {"role": "system", "content": system_msg},
-                    {"role": "user", "content": user_msg}
-                ],
-                stream=True  # ✅ Activar streaming
-            )
-            
-            # Procesar stream
-            for chunk in stream:
-                # Groq retorna chunks con estructura específica
-                if chunk.choices and len(chunk.choices) > 0:
-                    delta = chunk.choices[0].delta
-                    if hasattr(delta, 'content') and delta.content:
-                        yield delta.content
-            
-            # Señal de fin
-            yield "__STREAM_DONE__"
-            
-        except Exception as e:
-            error_str = str(e).lower()
-            
-            if "429" in str(e) or "rate" in error_str:
-                yield "\n\n⏳ **Límite de tasa alcanzado**\n\nEspera 1-2 minutos e intenta nuevamente.\n\n"
-            elif "authentication" in error_str or "api key" in error_str:
-                yield "\n\n⚠️ **Error de autenticación**\n\nVerifica tu GROQ_API_KEY.\n\n"
-            else:
-                yield f"\n\n⚠️ **Error**: {str(e)[:150]}\n\n"
-            
-            yield "__STREAM_DONE__"
-    
-    def generate_chunk(self, prompt, domain, max_tokens=2000):
-        """
-        🆕 Generar chunk individual (para método de chunking en main.py)
-        """
-        try:
-            system_msg = self._get_base_prompt(domain)
-            
-            response = self.client.chat.completions.create(
-                model=self.model,
-                temperature=self.temp,
-                max_tokens=max_tokens,
-                messages=[
-                    {"role": "system", "content": system_msg},
-                    {"role": "user", "content": prompt}
-                ]
-            )
-            
-            return response.choices[0].message.content
-            
-        except Exception as e:
-            print(f"❌ Error generando chunk: {str(e)}")
-            return f"⚠️ Error al generar esta sección: {str(e)[:100]}"
-    
     def _build_system_prompt(self, domain, special_command=None):
-        """Construir system prompt especializado por comando o dominio"""
-        
-        # ═══════════════════════════════════════════════════════
-        # COMANDOS ESPECIALES (prioridad) - EXACTOS DE MISTRAL
-        # ═══════════════════════════════════════════════════════
-        
         if special_command == "revision_nota":
             return """Eres un auditor médico certificado especializado en revisión de notas médicas.
 
@@ -280,7 +180,6 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
 
 **ESTRUCTURA OBLIGATORIA:**
 
-```
 NOTA MÉDICA
 
 ═══════════════════════════════════════════════════════════
@@ -379,7 +278,6 @@ Signos de alarma: [COMPLETAR]
 ═══════════════════════════════════════════════════════════
                     _______________________
                     Firma y Sello del Médico
-```
 
 **USA ESTA PLANTILLA** y completa con los datos proporcionados. Si falta información, deja [COMPLETAR]."""
 
@@ -458,15 +356,10 @@ Adapta tu respuesta para ENSEÑAR, no solo informar:
 
 **Objetivo:** Que el estudiante ENTIENDA profundamente, no solo memorice."""
 
-        # ═══════════════════════════════════════════════════════
-        # PROMPT BASE POR DOMINIO (si no hay comando especial)
-        # ═══════════════════════════════════════════════════════
         else:
             return self._get_base_prompt(domain)
     
     def _get_base_prompt(self, domain):
-        """Prompt base para respuestas médicas estándar - EXACTO DE MISTRAL"""
-        
         return f"""Eres Lisabella, un asistente médico especializado en ciencias de la salud.
 
 Tu área de expertise actual es: **{domain}**
@@ -485,25 +378,19 @@ Tu área de expertise actual es: **{domain}**
 
 1. **Rigor científico**: Solo información verificable de fuentes académicas
 2. **Precisión técnica**: Usa terminología médica correcta
-3. **Profundidad OBLIGATORIA**: 
-   - Respuestas de MÍNIMO 1500 palabras para temas de ciencias básicas
-   - Desarrolla TODOS los subtemas exhaustivamente
-   - NO RESUMAS ni omitas información por brevedad
-4. **Estructura obligatoria**:
-   - ## Definición (200+ palabras con clasificación y contexto)
-   - ## Detalles Clave (1000+ palabras con subsecciones numeradas)
-   - ## Advertencias (200+ palabras con patologías y valores normales)
-   - ## Fuentes (referencias específicas con capítulos/ediciones)
-5. **Formato**:
+3. **Estructura obligatoria**:
+   - ## Definición
+   - ## Detalles Clave
+   - ## Advertencias
+   - ## Fuentes
+4. **Formato**:
    - Usa **negritas** en términos clave
-   - Usa **tablas con DATOS CUANTITATIVOS** para comparaciones (no tablas vacías)
-   - Usa listas numeradas para clasificaciones extensas
-   - Incluye **valores numéricos, rangos, porcentajes** siempre que sea posible
-6. **Prohibiciones absolutas**:
+   - Usa tablas para comparaciones
+   - Usa listas para clasificaciones
+5. **Prohibiciones absolutas**:
    - NO inventes fármacos, estructuras anatómicas ni procesos
    - NO des información sin fuentes verificables
-   - NO hagas respuestas superficiales o resumidas
-   - NO menciones fuentes sin datos específicos (capítulo, edición, sección)
+   - NO respondas fuera de ciencias médicas
    - Si no tienes información verificada, di: "No cuento con información verificada sobre este tema específico"
 
 ## FUENTES VÁLIDAS:
@@ -518,39 +405,19 @@ Tu área de expertise actual es: **{domain}**
 Responde con profundidad académica pero claridad expositiva."""
     
     def _build_user_prompt(self, question, domain, special_command=None):
-        """Construir user prompt según comando - EXACTO DE MISTRAL"""
-        
         if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"]:
             return question
         else:
             return f"""PREGUNTA MÉDICA ({domain}):
 {question}
 
-Responde siguiendo ESTRICTAMENTE la estructura con MÁXIMO DETALLE:
-
+Responde siguiendo ESTRICTAMENTE la estructura:
 ## Definición
-[200+ palabras: concepto completo, clasificación, terminología técnica precisa]
-
 ## Detalles Clave
-[1000+ palabras OBLIGATORIAS divididas en subsecciones numeradas]:
-1. [Subtema 1 con desarrollo completo]
-2. [Subtema 2 con desarrollo completo]
-3. [Subtema 3 con desarrollo completo]
-- USA TABLAS con datos cuantitativos (tamaños en μm, porcentajes, rangos normales)
-- ESPECIFICA valores numéricos y unidades
-- DESARROLLA cada concepto en profundidad
-
 ## Advertencias
-[200+ palabras: patologías asociadas, valores normales, complicaciones, técnicas diagnósticas]
-
-## Fuentes
-[Referencias ESPECÍFICAS con capítulo y edición. Ejemplo: "Gray's Anatomy for Students (2ª ed.). Chapter 4: Blood"]
-
-**IMPORTANTE**: NO RESUMAS. Esta debe ser una respuesta COMPLETA nivel especialización."""
+## Fuentes"""
     
     def _generate_rate_limit_message(self):
-        """Mensaje amigable para rate limit - EXACTO DE MISTRAL"""
-        
         return """⏳ **Sistema Temporalmente Saturado**
 
 Lo siento, he alcanzado el límite de consultas por minuto con el proveedor de inteligencia artificial.
@@ -560,4 +427,4 @@ Lo siento, he alcanzado el límite de consultas por minuto con el proveedor de i
 • Si el problema persiste, intenta con una pregunta más breve
 • Este es un límite técnico del servicio, no un error de Lisabella
 
-**Nota para el administrador:** Considera actualizar el tier de la API de Groq para producción."""
+**Nota para el administrador:** Considera actualizar el tier de la API de Mistral para producción."""
