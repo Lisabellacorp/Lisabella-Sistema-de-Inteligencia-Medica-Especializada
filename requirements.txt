@@ -1,6 +1,6 @@
 Flask==3.0.0
 Flask-CORS==4.0.0
-openai==1.3.0  # ✅ NUEVA DEPENDENCIA
+openai==1.12.0  # ← VERSIÓN MÁS NUEVA ESTABLE
 python-dotenv==1.0.0
 gunicorn==21.2.0
 pytest==7.4.0
