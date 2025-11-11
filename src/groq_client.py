@@ -83,6 +83,73 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
         
         return self._generate_rate_limit_message()
     
+    def generate_stream(self, question, domain, special_command=None):
+        """
+        🆕 Generar respuesta en STREAMING (necesario para app.py)
+        Yields chunks de texto en tiempo real
+        """
+        try:
+            system_msg = self._build_system_prompt(domain, special_command)
+            user_msg = self._build_user_prompt(question, domain, special_command)
+            
+            # Llamada a Groq con streaming activado
+            stream = self.client.chat.completions.create(
+                model=self.model,
+                temperature=self.temp,
+                max_tokens=self.max_tokens,
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": user_msg}
+                ],
+                stream=True  # ✅ Activar streaming
+            )
+            
+            # Procesar stream
+            for chunk in stream:
+                # Groq retorna chunks con estructura específica
+                if chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
+                    if hasattr(delta, 'content') and delta.content:
+                        yield delta.content
+            
+            # Señal de fin
+            yield "__STREAM_DONE__"
+            
+        except Exception as e:
+            error_str = str(e).lower()
+            
+            if "429" in str(e) or "rate" in error_str:
+                yield "\n\n⏳ **Límite de tasa alcanzado**\n\nEspera 1-2 minutos e intenta nuevamente.\n\n"
+            elif "authentication" in error_str or "api key" in error_str:
+                yield "\n\n⚠️ **Error de autenticación**\n\nVerifica tu GROQ_API_KEY.\n\n"
+            else:
+                yield f"\n\n⚠️ **Error**: {str(e)[:150]}\n\n"
+            
+            yield "__STREAM_DONE__"
+    
+    def generate_chunk(self, prompt, domain, max_tokens=2000):
+        """
+        🆕 Generar chunk individual (para método de chunking en main.py)
+        """
+        try:
+            system_msg = self._get_base_prompt(domain)
+            
+            response = self.client.chat.completions.create(
+                model=self.model,
+                temperature=self.temp,
+                max_tokens=max_tokens,
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            print(f"❌ Error generando chunk: {str(e)}")
+            return f"⚠️ Error al generar esta sección: {str(e)[:100]}"
+    
     def _build_system_prompt(self, domain, special_command=None):
         """Construir system prompt especializado por comando o dominio"""
         
