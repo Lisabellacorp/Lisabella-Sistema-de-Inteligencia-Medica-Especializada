@@ -8,24 +8,32 @@ from dotenv import load_dotenv
 # ✅ Cargar variables de entorno ANTES de importar clientes
 load_dotenv()
 
-# ✅ CAMBIADO: src.openai_client (no src.mistral)
+# ✅ Importaciones corregidas (SIN amplitud_detector)
 from src.openai_client import OpenAIClient
 from src.wrapper import Wrapper, Result
-from src.amplitud_detector import evaluar_y_reformular
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
 # --- Inicializar clientes ---
 try:
-    openai_client = OpenAIClient()  # ✅ CAMBIADO: openai_client
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise ValueError("OPENAI_API_KEY no encontrada en variables de entorno")
+    
+    openai_client = OpenAIClient()
     wrapper = Wrapper()
-    print("✅ Lisabella iniciada correctamente con OpenAI")  # ✅ CAMBIADO
+    print("✅ Lisabella iniciada correctamente con OpenAI")
     print(f"📊 Wrapper stats: {wrapper.get_stats()}")
-    print(f"🤖 Modelo: {openai_client.model}")  # ✅ CAMBIADO
+    print(f"🤖 Modelo: {openai_client.model}")
+except ValueError as ve:
+    print(f"❌ Error de configuración: {str(ve)}")
+    print("⚠️ SOLUCIÓN: Configura OPENAI_API_KEY en Render → Environment Variables")
+    openai_client = None
+    wrapper = None
 except Exception as e:
-    print(f"❌ Error al inicializar: {str(e)}")
-    print("⚠️ Verifica que OPENAI_API_KEY esté configurada en Render")  # ✅ CAMBIADO
-    openai_client = None  # ✅ CAMBIADO
+    print(f"❌ Error inesperado al inicializar: {str(e)}")
+    import traceback
+    traceback.print_exc()
+    openai_client = None
     wrapper = None
 
 # --- Ruta principal ---
@@ -36,10 +44,10 @@ def index():
 # --- Healthcheck ---
 @app.route('/health')
 def health():
-    if not openai_client or not wrapper:  # ✅ CAMBIADO
+    if not openai_client or not wrapper:
         return jsonify({
             "status": "error",
-            "message": "Sistema no inicializado - verifica OPENAI_API_KEY en Environment Variables",  # ✅ CAMBIADO
+            "message": "Sistema no inicializado - verifica OPENAI_API_KEY en Environment Variables",
             "timestamp": str(datetime.now())
         }), 500
     
@@ -47,18 +55,18 @@ def health():
         "status": "ok",
         "timestamp": str(datetime.now()),
         "wrapper_stats": wrapper.get_stats(),
-        "model": openai_client.model,  # ✅ CAMBIADO
-        "provider": "OpenAI"  # ✅ CAMBIADO
+        "model": openai_client.model,
+        "provider": "OpenAI"
     })
 
 # --- API Legacy (no stream) - DEPRECATED pero funcional ---
 @app.route('/ask', methods=['POST'])
 def ask():
     """API sin streaming - mantener por compatibilidad"""
-    if not openai_client or not wrapper:  # ✅ CAMBIADO
+    if not openai_client or not wrapper:
         return jsonify({
             "status": "error",
-            "response": "⚠️ Sistema no inicializado. Verifica OPENAI_API_KEY en Render."  # ✅ CAMBIADO
+            "response": "⚠️ Sistema no inicializado. Verifica OPENAI_API_KEY en Render."
         }), 500
     
     try:
@@ -90,7 +98,7 @@ def ask():
         domain = classification.get("domain", "medicina general")
         special_command = classification.get("special_command", None)
         
-        response = openai_client.generate(question, domain, special_command)  # ✅ CAMBIADO
+        response = openai_client.generate(question, domain, special_command)
         
         return jsonify({
             "status": "approved",
@@ -100,6 +108,8 @@ def ask():
     
     except Exception as e:
         print(f"❌ Error en /ask: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             "status": "error",
             "response": f"⚠️ Error del servidor: {str(e)[:200]}"
@@ -108,11 +118,11 @@ def ask():
 # --- API Streaming (PRINCIPAL) ---
 @app.route('/ask_stream', methods=['POST'])
 def ask_stream():
-    """API con streaming en tiempo real usando OpenAI"""  # ✅ CAMBIADO
-    if not openai_client or not wrapper:  # ✅ CAMBIADO
+    """API con streaming en tiempo real usando OpenAI"""
+    if not openai_client or not wrapper:
         return jsonify({
             "status": "error",
-            "response": "⚠️ Sistema no inicializado. Verifica OPENAI_API_KEY en Render."  # ✅ CAMBIADO
+            "response": "⚠️ Sistema no inicializado. Verifica OPENAI_API_KEY en Render."
         }), 500
     
     try:
@@ -134,7 +144,7 @@ def ask_stream():
                     "type": "metadata",
                     "domain": classification.get("domain", "medicina general"),
                     "confidence": classification.get("confidence", 0.5),
-                    "provider": "OpenAI"  # ✅ CAMBIADO
+                    "provider": "OpenAI"
                 }) + "\n"
                 
                 # Si rechazada o reformular, enviar respuesta completa
@@ -158,32 +168,14 @@ def ask_stream():
                     }) + "\n"
                     return
                 
-                # APPROVED - Verificar amplitud ANTES de consumir tokens
+                # APPROVED - Proceder con streaming
                 domain = classification.get("domain", "medicina general")
                 special_command = classification.get("special_command", None)
-                note_analysis = classification.get("note_analysis", False)
                 
-                # ═══════════════════════════════════════════════════════
-                # DETECCIÓN DE AMPLITUD SEMÁNTICA (antes de consumir tokens)
-                # ═══════════════════════════════════════════════════════
-                # NO aplicar a comandos especiales (notas médicas, valoraciones)
-                if not special_command and not note_analysis:
-                    es_amplia, reformulacion = evaluar_y_reformular(question, domain)
-                    
-                    if es_amplia:
-                        yield json.dumps({
-                            "type": "complete",
-                            "data": {
-                                "status": "reformulate",
-                                "response": reformulacion
-                            }
-                        }) + "\n"
-                        return
-                
-                # Pregunta específica - proceder con streaming
+                # Iniciar streaming
                 yield json.dumps({"type": "init"}) + "\n"
                 
-                # ✅ IMPORTANTE: OpenAI SÍ tiene streaming nativo
+                # ✅ Streaming nativo de OpenAI
                 for chunk in openai_client.generate_stream(question, domain, special_command):
                     if chunk == "__STREAM_DONE__":
                         yield json.dumps({"type": "done"}) + "\n"
@@ -228,5 +220,5 @@ os.makedirs('logs', exist_ok=True)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"🚀 Iniciando Lisabella con OpenAI en puerto {port}")  # ✅ CAMBIADO
+    print(f"🚀 Iniciando Lisabella con OpenAI en puerto {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
