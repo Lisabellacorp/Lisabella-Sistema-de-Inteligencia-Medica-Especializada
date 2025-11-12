@@ -1,6 +1,6 @@
 import os
 import time
-import openai
+from openai import OpenAI  # ✅ Import correcto para openai>=1.0
 from src.config import OPENAI_API_KEY, OPENAI_MODEL, OPENAI_TEMP
 
 class OpenAIClient:
@@ -12,7 +12,7 @@ class OpenAIClient:
             )
         
         try:
-            self.client = openai.OpenAI(api_key=OPENAI_API_KEY)
+            self.client = OpenAI(api_key=OPENAI_API_KEY)  # ✅ Correcto
             self.model = OPENAI_MODEL
             self.temp = OPENAI_TEMP
             self.max_tokens = 4000
@@ -41,7 +41,11 @@ class OpenAIClient:
                     ]
                 )
                 
-                return response.choices[0].message.content
+                # ✅ Manejo robusto de respuesta
+                content = response.choices[0].message.content
+                if content is None:
+                    content = ""
+                return content
                 
             except Exception as e:
                 error_str = str(e).lower()
@@ -55,7 +59,7 @@ class OpenAIClient:
                     else:
                         return self._generate_rate_limit_message()
                 
-                elif "authentication" in error_str or "api key" in error_str:
+                elif "authentication" in error_str or "api key" in error_str or "401" in str(e):
                     return """⚠️ **Error de Autenticación**
 
 La API key de OpenAI no es válida o ha expirado.
@@ -76,6 +80,8 @@ No se pudo conectar con el servicio de IA.
                 
                 else:
                     print(f"❌ Error inesperado: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
                     return f"""⚠️ **Error del Sistema**
 
 Ha ocurrido un error inesperado al procesar tu pregunta.
@@ -103,18 +109,25 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
                 stream=True
             )
             
+            # ✅ Manejo robusto del streaming
             for chunk in stream:
-                if chunk.choices[0].delta.content is not None:
-                    yield chunk.choices[0].delta.content
+                if chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
+                    if hasattr(delta, 'content') and delta.content is not None:
+                        yield delta.content
             
             yield "__STREAM_DONE__"
             
         except Exception as e:
             error_str = str(e).lower()
             
+            print(f"❌ Error en streaming: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            
             if "rate" in error_str or "429" in str(e):
                 yield "\n\n⏳ **Límite de tasa alcanzado**\n\nEspera 1-2 minutos e intenta nuevamente.\n\n"
-            elif "authentication" in error_str or "api key" in error_str:
+            elif "authentication" in error_str or "api key" in error_str or "401" in str(e):
                 yield "\n\n⚠️ **Error de autenticación**\n\nVerifica tu OPENAI_API_KEY.\n\n"
             else:
                 yield f"\n\n⚠️ **Error**: {str(e)[:150]}\n\n"
