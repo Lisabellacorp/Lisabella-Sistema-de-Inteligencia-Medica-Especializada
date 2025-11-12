@@ -2,13 +2,12 @@ import sys
 sys.path.insert(0, '/home/ray/lisabella')
 
 from src.wrapper import Wrapper, Result
-from src.openai_client import OpenAIClient  # ✅ CAMBIADO: era src.groq_client
-from src.amplitud_detector import evaluar_y_reformular
+from src.openai_client import OpenAIClient
 
 class Lisabella:
     def __init__(self):
         self.wrapper = Wrapper()
-        self.openai = OpenAIClient()  # ✅ CAMBIADO: era self.groq
+        self.openai = OpenAIClient()
     
     def ask(self, question):
         """Procesar pregunta end-to-end con manejo robusto de errores y comandos especiales"""
@@ -63,30 +62,9 @@ class Lisabella:
             if note_analysis and not special_command:
                 special_command = "valoracion"  # Por defecto, valorar la nota
             
-            # ═══════════════════════════════════════════════════════
-            # DETECCIÓN DE AMPLITUD SEMÁNTICA (antes de consumir tokens)
-            # ═══════════════════════════════════════════════════════
-            # NO aplicar a comandos especiales (notas médicas, valoraciones)
-            if not special_command and not note_analysis:
-                print(f"🔍 [MAIN] Evaluando amplitud - Pregunta: '{question[:50]}...'")
-                print(f"🔍 [MAIN] Dominio: '{domain}'")
-                es_amplia, reformulacion = evaluar_y_reformular(question, domain)
-                print(f"🔍 [MAIN] Resultado: es_amplia={es_amplia}")
-                
-                if es_amplia:
-                    print(f"🔍 [MAIN] ✓ Interceptando pregunta amplia - retornando reformulación")
-                    return {
-                        "status": "reformulate",
-                        "domain": domain,
-                        "confidence": classification.get("confidence", 0.80),
-                        "response": reformulacion
-                    }
-                else:
-                    print(f"🔍 [MAIN] ✓ Pregunta específica - procediendo a OpenAI")  # ✅ CAMBIADO
-            
             # Generar respuesta
             try:
-                response = self.openai.generate(  # ✅ CAMBIADO: era self.groq.generate
+                response = self.openai.generate(
                     question=question,
                     domain=domain,
                     special_command=special_command
@@ -100,7 +78,7 @@ class Lisabella:
                     "response": response
                 }
                 
-            except Exception as openai_error:  # ✅ CAMBIADO: era groq_error
+            except Exception as openai_error:
                 # Error específico de OpenAI API
                 print(f"❌ Error en OpenAI API: {str(openai_error)}")
                 return {
@@ -135,14 +113,11 @@ Por favor, reporta este error al equipo de desarrollo incluyendo:
             }
     
     # ═══════════════════════════════════════════════════════
-    # MÉTODOS DE CHUNKING (NUEVO - Para evitar timeout)
+    # MÉTODOS DE CHUNKING (Para evitar timeout)
     # ═══════════════════════════════════════════════════════
     
     def generate_standard_chunks(self, question, domain):
-        """
-        Genera respuesta estándar en 4 CHUNKS COMPLETOS.
-        CADA CHUNK tiene calidad completa, no se reduce información.
-        """
+        """Genera respuesta estándar en 4 CHUNKS COMPLETOS"""
         sections = [
             {
                 'title': '## 📖 Definición',
@@ -198,7 +173,7 @@ Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guía
         
         for section in sections:
             try:
-                content = self.openai.generate_chunk(  # ✅ CAMBIADO: era self.groq.generate_chunk
+                content = self.openai.generate_chunk(
                     prompt=section['prompt'],
                     domain=domain,
                     max_tokens=section['max_tokens']
@@ -209,10 +184,7 @@ Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guía
                 yield f"{section['title']}\n\n⚠️ Error al generar esta sección."
     
     def generate_special_chunks(self, question, domain, special_command):
-        """
-        Genera respuesta para COMANDOS ESPECIALES en chunks.
-        Mantiene la CALIDAD COMPLETA de cada sección.
-        """
+        """Genera respuesta para COMANDOS ESPECIALES en chunks"""
         
         if special_command == "revision_nota":
             sections = [
@@ -304,7 +276,7 @@ Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guía
         # Generar cada sección
         for title, prompt, max_tok in sections:
             try:
-                content = self.openai.generate_chunk(  # ✅ CAMBIADO: era self.groq.generate_chunk
+                content = self.openai.generate_chunk(
                     prompt=prompt,
                     domain=domain,
                     max_tokens=max_tok
@@ -319,7 +291,7 @@ Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guía
     # ═══════════════════════════════════════════════════════
     
     def analyze_note(self, note_text):
-        """Analizar nota médica completa (método legacy, ahora se usa clasificación automática)"""
+        """Analizar nota médica completa"""
         try:
             return self.ask(note_text)
         except Exception as e:
@@ -340,7 +312,6 @@ Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guía
 **1. REVISIÓN DE NOTA MÉDICA**
 revisar nota médica [pegar nota aquí]
 
-text
 Evalúa completitud según estándares JCI, Clínica Mayo y COFEPRIS.
 
 ---
@@ -348,7 +319,6 @@ Evalúa completitud según estándares JCI, Clínica Mayo y COFEPRIS.
 **2. CORRECCIÓN DE NOTA MÉDICA**
 corregir nota médica [pegar nota aquí]
 
-text
 Identifica y corrige errores de formato, ortografía, dosis y abreviaturas.
 
 ---
@@ -356,7 +326,6 @@ Identifica y corrige errores de formato, ortografía, dosis y abreviaturas.
 **3. ELABORACIÓN DE NOTA MÉDICA**
 elaborar nota médica [datos del paciente]
 
-text
 Genera plantilla SOAP completa con campos obligatorios.
 
 ---
@@ -364,7 +333,6 @@ Genera plantilla SOAP completa con campos obligatorios.
 **4. VALORACIÓN DE PACIENTE**
 valoracion de paciente [caso clínico]
 
-text
 Orienta diagnóstico diferencial y abordaje terapéutico.
 
 ---
@@ -374,7 +342,6 @@ Orienta diagnóstico diferencial y abordaje terapéutico.
 **APOYO EN ESTUDIO**
 apoyo en estudio [tema médico]
 
-text
 Modo educativo con analogías, ejemplos clínicos y correlación práctica.
 
 **Ejemplos:**
@@ -394,7 +361,7 @@ Modo educativo con analogías, ejemplos clínicos y correlación práctica.
     
     def cli(self):
         """Modo interactivo para pruebas locales"""
-        print("\n🏥 Lisabella - Asistente Médico IA (OpenAI)")  # ✅ CAMBIADO
+        print("\n🏥 Lisabella - Asistente Médico IA (OpenAI)")
         print("=" * 60)
         print("Comandos disponibles:")
         print("  • Pregunta médica normal")
