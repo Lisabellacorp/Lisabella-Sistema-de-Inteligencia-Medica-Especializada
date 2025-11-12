@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ════════════════════════════════════════════════════════════
-# DEBUG COMPLETO (AGREGAR ESTO AL PRINCIPIO)
+# DEBUG COMPLETO - OPENAI CONFIG
 # ════════════════════════════════════════════════════════════
 print("=" * 60)
 print("🔍 DEBUG COMPLETO - OPENAI CONFIG")
@@ -30,21 +30,35 @@ else:
 print("=" * 60)
 
 # ════════════════════════════════════════════════════════════
-# OPENAI API (MANTENER LO QUE YA TENÍAS)
+# OPENAI API (CON VALIDACIÓN CRÍTICA)
 # ════════════════════════════════════════════════════════════
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+
+if not OPENAI_API_KEY or OPENAI_API_KEY.strip() == "":
+    print("=" * 60)
+    print("🚨 ERROR CRÍTICO: OPENAI_API_KEY NO CONFIGURADA")
+    print("=" * 60)
+    print("Por favor configura OPENAI_API_KEY en Render:")
+    print("1. Ve a tu dashboard de Render")
+    print("2. Selecciona tu servicio")
+    print("3. Ve a Environment")
+    print("4. Añade: OPENAI_API_KEY = sk-proj-...")
+    print("=" * 60)
+    OPENAI_API_KEY = None
+else:
+    OPENAI_API_KEY = OPENAI_API_KEY.strip()  # Eliminar espacios
+    print(f"6. ✅ OPENAI_API_KEY cargada correctamente ({len(OPENAI_API_KEY)} caracteres)")
+
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4-turbo")
 OPENAI_TEMP = float(os.environ.get("OPENAI_TEMP", "0.3"))
 
-print(f"6. OPENAI_API_KEY después de get(): {'✅ CARGADA' if OPENAI_API_KEY else '❌ NULA'}")
 print(f"7. OPENAI_MODEL: {OPENAI_MODEL}")
 print(f"8. OPENAI_TEMP: {OPENAI_TEMP}")
 print("=" * 60)
 
 # ════════════════════════════════════════════════════════════
-# CONFIGURACIONES EXISTENTES (MANTENER TODO LO DEMÁS)
-# ════════════════════════════════════════════════════════════
 # VALIDACIÓN DE CALIDAD
+# ════════════════════════════════════════════════════════════
 VALIDATE_MIN_WORDS = int(os.environ.get("VALIDATE_MIN_WORDS", "1500"))
 VALIDATE_TABLES = os.environ.get("VALIDATE_TABLES", "true").lower() == "true"
 VALIDATE_NUMBERS = os.environ.get("VALIDATE_NUMBERS", "true").lower() == "true"
@@ -59,7 +73,7 @@ LOGS_DIR = os.environ.get("LOGS_DIR", "./logs")
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 
 # ════════════════════════════════════════════════════════════
-# GROQ (MANTENER POR SI ACASO, PERO YA NO SE USA)
+# GROQ (DEPRECADO - Mantener por compatibilidad legacy)
 # ════════════════════════════════════════════════════════════
 GROQ_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
