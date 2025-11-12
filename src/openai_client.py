@@ -5,14 +5,23 @@ from src.config import OPENAI_API_KEY, OPENAI_MODEL, OPENAI_TEMP
 
 class OpenAIClient:
     def __init__(self):
-        self.client = openai.OpenAI(api_key=OPENAI_API_KEY)
-        self.model = OPENAI_MODEL
-        self.temp = OPENAI_TEMP
-        self.max_tokens = 4000
-        self.max_retries = 3
-        self.base_retry_delay = 5
+        if not OPENAI_API_KEY:
+            raise ValueError(
+                "❌ OPENAI_API_KEY no configurada. "
+                "Por favor añádela en las Environment Variables de Render."
+            )
         
-        print(f"✅ OpenAIClient iniciado - Modelo: {self.model}")
+        try:
+            self.client = openai.OpenAI(api_key=OPENAI_API_KEY)
+            self.model = OPENAI_MODEL
+            self.temp = OPENAI_TEMP
+            self.max_tokens = 4000
+            self.max_retries = 3
+            self.base_retry_delay = 5
+            
+            print(f"✅ OpenAIClient iniciado - Modelo: {self.model}")
+        except Exception as e:
+            raise ValueError(f"❌ Error al inicializar OpenAI Client: {str(e)}")
     
     def generate(self, question, domain, special_command=None):
         """Generar respuesta con retry automático"""
@@ -113,7 +122,7 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
             yield "__STREAM_DONE__"
     
     def _build_system_prompt(self, domain, special_command=None):
-        """MISMO CÓDIGO QUE TENÍAS EN MISTRAL - COPIA Y PEGA TODO"""
+        """Construir prompt del sistema según comando especial o dominio"""
         # ═══════════════════════════════════════════════════════
         # COMANDOS ESPECIALES (prioridad)
         # ═══════════════════════════════════════════════════════
@@ -342,8 +351,6 @@ Signos de alarma: [COMPLETAR]
 _______________________
 Firma y Sello del Médico
 
-text
-
 **USA ESTA PLANTILLA** y completa con los datos proporcionados. Si falta información, deja [COMPLETAR]."""
 
         elif special_command == "valoracion":
@@ -425,7 +432,7 @@ Adapta tu respuesta para ENSEÑAR, no solo informar:
             return self._get_base_prompt(domain)
     
     def _get_base_prompt(self, domain):
-        """MISMO PROMPT BASE QUE TENÍAS"""
+        """Prompt base para preguntas médicas generales"""
         return f"""Eres Lisabella, un asistente médico especializado en ciencias de la salud.
 
 Tu área de expertise actual es: **{domain}**
@@ -471,7 +478,7 @@ Tu área de expertise actual es: **{domain}**
 Responde con profundidad académica pero claridad expositiva."""
     
     def _build_user_prompt(self, question, domain, special_command=None):
-        """MISMO USER PROMPT QUE TENÍAS"""
+        """Construir prompt del usuario"""
         if special_command in ["revision_nota", "correccion_nota", "elaboracion_nota", "valoracion"]:
             return question
         else:
@@ -494,4 +501,4 @@ Lo siento, he alcanzado el límite de consultas por minuto con el proveedor de i
 • Si el problema persiste, intenta con una pregunta más breve
 • Este es un límite técnico del servicio, no un error de Lisabella
 
-**Nota para el administrador:** Considera actualizar el tier de la API de OpenAI para producción."""
+**Nota para el administrador:** Considera actualizar el tier de la API de OpenAI para mayor capacidad."""
