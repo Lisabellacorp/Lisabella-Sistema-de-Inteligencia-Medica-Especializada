@@ -49,7 +49,7 @@ else:
     OPENAI_API_KEY = OPENAI_API_KEY.strip()  # Eliminar espacios
     print(f"6. ✅ OPENAI_API_KEY cargada correctamente ({len(OPENAI_API_KEY)} caracteres)")
 
-OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4-turbo")
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o")  # ✅ Modelo correcto actualizado
 OPENAI_TEMP = float(os.environ.get("OPENAI_TEMP", "0.3"))
 
 print(f"7. OPENAI_MODEL: {OPENAI_MODEL}")
