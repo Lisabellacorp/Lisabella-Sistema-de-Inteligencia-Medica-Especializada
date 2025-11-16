@@ -40,6 +40,8 @@ class MistralClient:
         🚀 Genera respuesta con STREAMING REAL de Mistral.
         Max tokens aumentado a 16000 para respuestas largas completas.
         """
+        import time
+        time.sleep(1)  # Rate limiting para tier gratuito
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
         
@@ -52,7 +54,7 @@ class MistralClient:
                     {"role": "user", "content": user_msg}
                 ],
                 temperature=self.temp,
-                max_tokens=16000  # ⬅️ AUMENTADO DE 8000 A 16000
+                max_tokens=4000  # ⬅️ AUMENTADO DE 8000 A 16000
             )
             
             # Generator que envía cada chunk conforme llega
@@ -92,7 +94,7 @@ class MistralClient:
                         question,
                         domain,
                         special_command,
-                        max_tokens=16000  # ⬅️ AUMENTADO DE 8000 A 16000
+                        max_tokens=4000  # ⬅️ AUMENTADO DE 8000 A 16000
                     )
                     result = future.result(timeout=self.api_timeout)
                 return result
@@ -145,7 +147,7 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
 
         return self._generate_rate_limit_message()
 
-    def _call_mistral_api(self, question, domain, special_command, max_tokens=16000):
+    def _call_mistral_api(self, question, domain, special_command, max_tokens=4000):
         """Llamada real a la API de Mistral con 16000 tokens"""
         system_msg = self._build_system_prompt(domain, special_command)
         user_msg = self._build_user_prompt(question, domain, special_command)
@@ -157,7 +159,7 @@ Por favor, intenta reformular tu pregunta o contacta al soporte."""
                 {"role": "user", "content": user_msg}
             ],
             temperature=self.temp,
-            max_tokens=max_tokens  # ⬅️ Ahora usa 16000 por default
+            max_tokens=max_tokens  # ⬅️ Ahora usa 4000 por default
         )
 
         return response.choices[0].message.content
