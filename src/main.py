@@ -2,12 +2,12 @@ import sys
 sys.path.insert(0, '/home/ray/lisabella')
 
 from src.wrapper import Wrapper, Result
-from src.openai_client import OpenAIClient
+from src.mistral import MistralClient
 
 class Lisabella:
     def __init__(self):
         self.wrapper = Wrapper()
-        self.openai = OpenAIClient()
+        self.mistral = MistralClient()
     
     def ask(self, question):
         """Procesar pregunta end-to-end con manejo robusto de errores y comandos especiales"""
@@ -64,7 +64,7 @@ class Lisabella:
             
             # Generar respuesta
             try:
-                response = self.openai.generate(
+                response = self.mistral.generate(
                     question=question,
                     domain=domain,
                     special_command=special_command
@@ -78,9 +78,9 @@ class Lisabella:
                     "response": response
                 }
                 
-            except Exception as openai_error:
-                # Error específico de OpenAI API
-                print(f"❌ Error en OpenAI API: {str(openai_error)}")
+            except Exception as mistral_error:
+                # Error específico de Mistral API
+                print(f"❌ Error en Mistral API: {str(mistral_error)}")
                 return {
                     "status": "error",
                     "domain": domain,
@@ -88,7 +88,7 @@ class Lisabella:
 
 Ocurrió un problema al comunicarse con el servicio de inteligencia artificial.
 
-**Detalles técnicos**: {str(openai_error)[:150]}
+**Detalles técnicos**: {str(mistral_error)[:150]}
 
 **Sugerencias**:
 • Intenta reformular tu pregunta
@@ -113,11 +113,14 @@ Por favor, reporta este error al equipo de desarrollo incluyendo:
             }
     
     # ═══════════════════════════════════════════════════════
-    # MÉTODOS DE CHUNKING (Para evitar timeout)
+    # MÉTODOS DE CHUNKING (NUEVO - Para evitar timeout)
     # ═══════════════════════════════════════════════════════
     
     def generate_standard_chunks(self, question, domain):
-        """Genera respuesta estándar en 4 CHUNKS COMPLETOS"""
+        """
+        Genera respuesta estándar en 4 CHUNKS COMPLETOS.
+        CADA CHUNK tiene calidad completa, no se reduce información.
+        """
         sections = [
             {
                 'title': '## 📖 Definición',
@@ -129,7 +132,7 @@ Incluye:
 - Terminología técnica precisa
 
 Responde con rigor académico y cita fuentes al final.""",
-                'max_tokens': 1200
+                'max_tokens': 1200  # Espacio completo para definición detallada
             },
             {
                 'title': '## 🔬 Detalles Clínicos',
@@ -141,7 +144,7 @@ Responde con rigor académico y cita fuentes al final.""",
 - Cuadro clínico típico
 
 Usa tablas, listas y formato markdown. Cita fuentes.""",
-                'max_tokens': 1500
+                'max_tokens': 1500  # Más espacio para detalles complejos
             },
             {
                 'title': '## 💊 Aplicación Práctica',
@@ -153,7 +156,7 @@ Usa tablas, listas y formato markdown. Cita fuentes.""",
 - Pronóstico y seguimiento
 
 Sé específico con dosis, vías y duraciones. Cita guías clínicas.""",
-                'max_tokens': 1500
+                'max_tokens': 1500  # Espacio para detalles terapéuticos
             },
             {
                 'title': '## ⚠️ Advertencias y Referencias',
@@ -167,24 +170,31 @@ Sé específico con dosis, vías y duraciones. Cita guías clínicas.""",
 
 **FUENTES BIBLIOGRÁFICAS:**
 Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guías ESC/AHA, UpToDate, etc.)""",
-                'max_tokens': 1000
+                'max_tokens': 1000  # Advertencias y fuentes
             }
         ]
         
         for section in sections:
             try:
-                content = self.openai.generate_chunk(
+                # Generar contenido COMPLETO de la sección
+                content = self.mistral.generate_chunk(
                     prompt=section['prompt'],
                     domain=domain,
                     max_tokens=section['max_tokens']
                 )
+                
+                # Devolver título + contenido
                 yield f"{section['title']}\n\n{content}"
+                
             except Exception as e:
                 print(f"❌ Error generando chunk: {str(e)}")
                 yield f"{section['title']}\n\n⚠️ Error al generar esta sección."
     
     def generate_special_chunks(self, question, domain, special_command):
-        """Genera respuesta para COMANDOS ESPECIALES en chunks"""
+        """
+        Genera respuesta para COMANDOS ESPECIALES en chunks.
+        Mantiene la CALIDAD COMPLETA de cada sección.
+        """
         
         if special_command == "revision_nota":
             sections = [
@@ -219,6 +229,7 @@ Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guía
             ]
         
         elif special_command == "elaboracion_nota":
+            # Para elaboración, generar secciones SOAP completas
             sections = [
                 ('## DATOS Y SUBJETIVO (S)', 
                  f"Genera sección completa de DATOS DEL PACIENTE y SUBJETIVO para:\n\n{question}\n\nUsa formato profesional con todos los campos.", 
@@ -270,13 +281,14 @@ Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guía
             ]
         
         else:
+            # Fallback a estándar
             yield from self.generate_standard_chunks(question, domain)
             return
         
         # Generar cada sección
         for title, prompt, max_tok in sections:
             try:
-                content = self.openai.generate_chunk(
+                content = self.mistral.generate_chunk(
                     prompt=prompt,
                     domain=domain,
                     max_tokens=max_tok
@@ -291,7 +303,7 @@ Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guía
     # ═══════════════════════════════════════════════════════
     
     def analyze_note(self, note_text):
-        """Analizar nota médica completa"""
+        """Analizar nota médica completa (método legacy, ahora se usa clasificación automática)"""
         try:
             return self.ask(note_text)
         except Exception as e:
@@ -310,29 +322,33 @@ Lista las fuentes específicas usadas (Gray's Anatomy, Guyton, Harrison's, guía
 ### 📋 **NOTAS MÉDICAS**
 
 **1. REVISIÓN DE NOTA MÉDICA**
+```
 revisar nota médica [pegar nota aquí]
-
+```
 Evalúa completitud según estándares JCI, Clínica Mayo y COFEPRIS.
 
 ---
 
 **2. CORRECCIÓN DE NOTA MÉDICA**
+```
 corregir nota médica [pegar nota aquí]
-
+```
 Identifica y corrige errores de formato, ortografía, dosis y abreviaturas.
 
 ---
 
 **3. ELABORACIÓN DE NOTA MÉDICA**
+```
 elaborar nota médica [datos del paciente]
-
+```
 Genera plantilla SOAP completa con campos obligatorios.
 
 ---
 
 **4. VALORACIÓN DE PACIENTE**
+```
 valoracion de paciente [caso clínico]
-
+```
 Orienta diagnóstico diferencial y abordaje terapéutico.
 
 ---
@@ -340,14 +356,15 @@ Orienta diagnóstico diferencial y abordaje terapéutico.
 ### 📚 **MODO ESTUDIO**
 
 **APOYO EN ESTUDIO**
+```
 apoyo en estudio [tema médico]
-
+```
 Modo educativo con analogías, ejemplos clínicos y correlación práctica.
 
 **Ejemplos:**
 - "apoyo en estudio ciclo de Krebs"
 - "apoyo en estudio anatomía del plexo braquial"
-- "apoyo en estudio farmacología de betabloqueadores"
+- "apoyo en estudio farmacología de betabloqueantes"
 
 ---
 
@@ -361,7 +378,7 @@ Modo educativo con analogías, ejemplos clínicos y correlación práctica.
     
     def cli(self):
         """Modo interactivo para pruebas locales"""
-        print("\n🏥 Lisabella - Asistente Médico IA (OpenAI)")
+        print("\n🏥 Lisabella - Asistente Médico IA")
         print("=" * 60)
         print("Comandos disponibles:")
         print("  • Pregunta médica normal")
@@ -396,6 +413,7 @@ Modo educativo con analogías, ejemplos clínicos y correlación práctica.
                 
                 print("\n" + "=" * 60)
                 
+                # Mostrar dominio solo en modo debug
                 if result.get("special_command"):
                     print(f"🔧 Comando: {result['special_command']}")
                 
