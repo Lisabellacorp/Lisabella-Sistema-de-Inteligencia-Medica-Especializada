@@ -2,12 +2,12 @@ import sys
 sys.path.insert(0, '/home/ray/lisabella')
 
 from src.wrapper import Wrapper, Result
-from src.mistral import MistralClient
+from src.deepseek import DeepSeekClient
 
 class Lisabella:
     def __init__(self):
         self.wrapper = Wrapper()
-        self.mistral = MistralClient()
+        self.mistral = DeepSeekClient()
     
     def ask(self, question):
         """Procesar pregunta end-to-end con manejo robusto de errores y comandos especiales"""
