@@ -137,7 +137,7 @@ def ask_stream():
                     
                     # Enviar chunks cuando tengamos contenido razonable
                     # (≥150 caracteres O puntos/saltos de línea)
-                    if len(buffer) >= 150 or token in ['.', '!', '?', '\n\n']:
+                    if len(buffer) >= 30 or token in ['.', '!', '?', '\n\n']:
                         yield json.dumps({
                             "type": "chunk",
                             "index": chunk_index,
